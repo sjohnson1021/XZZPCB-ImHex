@@ -237,68 +237,199 @@ struct net_block {
 }; 
 
 // v6v6555v6v6===
-struct diode_header_v6v655 {
-    u8 byte[18];
+struct v6v655 {
+    char v6v655[11];
 };
 
-// Diode readings
-struct diode_type_1 {
-    u8 type_identifier_0A;
-    if (std::mem::eof()) {
-        return;
+fn break_post_v6() {
+    if (std::mem::size() == $ + seperator_string_length) {
+        return seperator_string_length;
     }
-    padding[1];
-    char volt_reading[while(std::mem::read_unsigned($, 1) != 0x3D)];
-    padding[1];
-    char net[while(std::mem::read_unsigned($, 1) != 0x28)];
-    padding[1];
-    char pin_number[while(std::mem::read_unsigned($, 1) != 0x29)];
-    padding[1];
+    if (std::mem::read_string($ + seperator_string_length, seperator_string_length) == seperator_string) {
+        // Double seperator
+        return 2 * seperator_string_length;
+    }
+    if (std::mem::read_unsigned($, 6, 1) == 0x0D0A0D0A0D0A) {
+        return 6;
+    }
+    if (std::mem::read_unsigned($, 5, 1) == 0x0D0A200D0A) {
+        return 5;
+    }
+    return -1;
 };
 
-struct diode_type_2 {
+struct post_v6_signal {
+    if (break_post_v6() != -1) {
+        padding[break_post_v6()];
+        break;
+    }
+    padding[seperator_string_length];
+    char signal_name[while(std::mem::read_unsigned($, 1) != 0x3D)];
+    padding[1]; // '='
+    char new_signal_name[while(std::mem::read_string($, seperator_string_length) != seperator_string)];
+};
+
+struct post_v6_resistance {
+    if (break_post_v6() != -1) {
+        padding[break_post_v6()];
+        break;
+    }
+    padding[seperator_string_length];
+    padding[1]; // '='
+    char resistance_reading[while(std::mem::read_unsigned($, 1) != 0x3D)];
+    padding[1]; // '='
+    char part_name[while(std::mem::read_unsigned($, 1) != 0x28)];
+    padding[1]; // '('
+    char pin_name[while(std::mem::read_unsigned($, 1) != 0x29)];
+    padding[1]; // ')'
+};
+
+struct post_v6_menu {
+    if (break_post_v6() != -1) {
+        padding[break_post_v6()];
+        break;
+    }
+    padding[seperator_string_length];
+    char json_data[while(std::mem::read_unsigned($, 4, 1) != 0x0D0A0D0A)];
+};
+
+struct post_v6_params {
+    if (break_post_v6() != -1) {
+        padding[break_post_v6()];
+        break;
+    }
+    padding[seperator_string_length];
+    char part_name[while(std::mem::read_unsigned($, 1) != 0x20)];
+    padding[1];
+    char part_comment[while(std::mem::read_unsigned($, 1) != 0x20)];
+    padding[1];
+    char part_pad_size[while(std::mem::read_string($, seperator_string_length) != seperator_string)];
+};
+
+struct post_v6_resistance_diagram {
+    if (break_post_v6() != -1) {
+        padding[break_post_v6()];
+        break;
+    }
+    padding[seperator_string_length];
+    char net_name[while(std::mem::read_unsigned($, 1) != 0x3D)];
+    padding[1]; // =
+    char reading[while(std::mem::read_string($, seperator_string_length) != seperator_string)];
+};
+
+str seperator_string;
+u8 seperator_string_length;
+fn find_seperator() {
+    u8 p = 0;
+    while (p<20) {
+        if (std::mem::read_unsigned($+p, 1, 1) == 0x0A) {
+            seperator_string = "\x0A";
+            seperator_string_length = 1;
+            std::print("Seperator = 0x0A");
+            break;
+        } else if (std::mem::read_unsigned($+p, 2, 1) == 0x0A0D) {
+            seperator_string = "\x0A\x0D";
+            seperator_string_length = 2;
+            std::print("Seperator = 0x0A0D");
+            break;
+        } else if (std::mem::read_unsigned($+p, 2, 1) == 0x0D0A) {
+            seperator_string = "\x0D\x0A";
+            seperator_string_length = 2;
+            std::print("Seperator = 0x0D0A");
+            break;
+        } else if (std::mem::read_unsigned($+p, 1, 1) == 0x0D) {
+            seperator_string = "\x0D";
+            seperator_string_length = 1;
+            std::print("Seperator = 0x0D");
+            break;
+        } else {
+            p += 1;
+        }
+    }
+};
+
+fn translate_string(str input) {
+    if (input == "") {
+        return "";
+    } else if (input == "\xD7\xE8\xD6\xB5") {
+        // 阻值 -> Resistance
+        return "resistance";
+    } else if (input == "\xD7\xE8\xD6\xB5\xCD\xBC") {
+        // 阻值图 -> Resistance diagram
+        return "resistance diagram";
+    } else if (input == "\xD0\xC5\xBA\xC5") {
+        // 信号 -> Signal
+        return "signal";
+    } else if (input == "\xB2\xCB\xB5\xA5") {
+        // 菜单 -> Menu
+        return "menu";
+    } else {
+        return "unknown tranlation!";
+    }
+};
+
+u8 header_string_length;
+str last_header_string;
+str last_header_string_translated;
+bool skip_loop;
+
+fn read_v6_header_string_length() {
+    u8 header_string_length = 0;
+    if (std::mem::read_unsigned($, 3, 1) == 0x3D3D3D) {
+        return 0;
+    }
+    while (std::mem::read_unsigned($+header_string_length, 1, 1) != 0x0D && std::mem::read_unsigned($+header_string_length, 1, 1) != 0x0A) {
+        header_string_length += 1;
+    }
+    return header_string_length;
+};
+
+struct post_v6 {
+    skip_loop = false;
+    header_string_length = read_v6_header_string_length();
+    if (header_string_length != 0) {
+        char header_string[header_string_length];
+        last_header_string = std::mem::read_string($, header_string_length);
+        last_header_string_translated = translate_string(header_string);
+        std::print("Found header string \'{}\'", last_header_string_translated);
+        skip_loop = true;
+    }
     
-    u16 type_identifier_0D0A;
-    if (std::mem::eof()) {
-        return;
+    if (std::mem::read_unsigned($, 3, 1) == 0x3D3D3D) {
+        char seperator[3];
+        skip_loop = true;
     }
-    if (std::mem::read_unsigned($, 1) == 0x0D) {
-        return;
+    
+    if (!skip_loop) {
+        std::print("Last header string: {}", last_header_string_translated);
+        if (last_header_string_translated == "") {
+            // Params (No header string)
+            std::print("Found params block");
+            post_v6_params params[while(!std::mem::eof())];
+        }
+        if (last_header_string_translated == "resistance") {
+            // resistance
+            std::print("Found resistance block");
+            post_v6_resistance resistance[while(!std::mem::eof())];
+        }
+        if (last_header_string_translated == "menu") {
+            // menu
+            std::print("Found menu block");
+            post_v6_menu menu[while(!std::mem::eof())];
+        } 
+        if (last_header_string_translated == "signal") {
+            // signal
+            std::print("Found signal block");
+            post_v6_signal signals[while(!std::mem::eof())];
+        }
+        if (last_header_string_translated == "resistance diagram") {
+            // resistance diagram
+            std::print("Found resistance diagram block");
+            post_v6_resistance_diagram resistance_diagram[while(!std::mem::eof())];
+            //post_v6_resistance_diagram resistance_diagram[1];
+        }
     }
-    char net_name[while(std::mem::read_unsigned($, 1) != 0x3D)];
-    padding[1];
-    char volt_reading[while(std::mem::read_unsigned($, 1) != 0x0D)];
 };
-
-struct diode_type_3 {
-    u16 type_identifier_0D0A;
-    if (std::mem::eof()) {
-        return;
-    }
-    char net_name[while(std::mem::read_unsigned($, 1) != 0x3D)];
-    padding[1];
-    char volt_reading[while(std::mem::read_unsigned($, 1) != 0x0D)];
-};
-
-struct diode_readings {
-    if ($[$] == 0x0A) {
-        // Type 1
-        diode_type_1 diode[while(!std::mem::eof())];
-        return;
-    } else if ($[$] != 0x0D) { 
-        // Type 2
-        u8 unknown[2];
-        diode_type_2 diode[while(!std::mem::eof())];        
-        return;
-    } else if ($[$] == 0x0D) {
-        // Type 3
-        diode_type_3 diode[while(!std::mem::eof())];        
-        return;
-    }
-    if (std::mem::eof()) {
-        return;
-    }
-};  
 
 ///////////////////////////////////
 
@@ -309,5 +440,6 @@ net_block nets @ $;
 if (std::mem::eof()) { // To handle files without diode readings
     return; 
 }
-diode_header_v6v655 diode_header_v6v655 @ $;
-diode_readings diode_readings @ $;
+v6v655 v6v655 @ $;
+find_seperator();
+post_v6 post_v6[while(!std::mem::eof())] @ $;
