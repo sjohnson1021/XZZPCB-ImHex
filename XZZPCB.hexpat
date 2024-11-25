@@ -32,8 +32,8 @@ Blocks identified by a u8
 Image block size (Can be 0)
 Images
 Nets
-v6v6555v6v6=== (If not included, no diode)
-Diode Readings
+v6v6555v6v6
+Diode readings, menu, signal names, part params 
 */
 
 
