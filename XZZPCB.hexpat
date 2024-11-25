@@ -317,6 +317,17 @@ struct post_v6_resistance_diagram {
     char reading[while(std::mem::read_string($, seperator_string_length) != seperator_string)];
 };
 
+struct post_v6_voltage {
+    if (break_post_v6() != -1) {
+        padding[break_post_v6()];
+        break;
+    }
+    padding[seperator_string_length];
+    char net_name[while(std::mem::read_unsigned($, 1) != 0x3D)];
+    padding[1]; // =
+    char voltage_reading[while(std::mem::read_string($, seperator_string_length) != seperator_string)];
+};
+
 str seperator_string;
 u8 seperator_string_length;
 fn find_seperator() {
@@ -363,6 +374,9 @@ fn translate_string(str input) {
     } else if (input == "\xB2\xCB\xB5\xA5") {
         // 菜单 -> Menu
         return "menu";
+    } else if (input == "\xB5\xE7\xD1\xB9") {
+        // 电压 -> Voltage
+        return "voltage";
     } else {
         return "unknown tranlation!";
     }
@@ -426,6 +440,11 @@ struct post_v6 {
             // resistance diagram
             std::print("Found resistance diagram block");
             post_v6_resistance_diagram resistance_diagram[while(!std::mem::eof())];
+        }
+        if (last_header_string_translated == "voltage") {
+            // voltage
+            std::print("Found voltage block");
+            post_v6_voltage voltage[while(!std::mem::eof())];
         }
     }
 };
