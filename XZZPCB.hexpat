@@ -426,7 +426,6 @@ struct post_v6 {
             // resistance diagram
             std::print("Found resistance diagram block");
             post_v6_resistance_diagram resistance_diagram[while(!std::mem::eof())];
-            //post_v6_resistance_diagram resistance_diagram[1];
         }
     }
 };
@@ -437,7 +436,7 @@ file_header_s header @ 0;
 main_data_block outline[60000] @ $; // Highest I've seen is ~56k
 images_block images @ $;
 net_block nets @ $;
-if (std::mem::eof()) { // To handle files without diode readings
+if (std::mem::eof()) { // To handle files without v6v655
     return; 
 }
 v6v655 v6v655 @ $;
