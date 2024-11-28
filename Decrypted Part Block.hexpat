@@ -69,18 +69,18 @@ struct sub_type_09 {
     u8 sub_type_identifier_09;
     u32 block_size;
     block_end = $ + block_size;
-    u32 un1; // 0
+    u32 un1; // Seen: 0,1
     u32 x;
     u32 y;
-    u32 un2; // 0
-    u32 un3; // 0
+    u32 un2; // Seen: 0
+    u32 un3; // Seen: 0,2700000
     u32 pin_name_size;
     char pin_name[pin_name_size];
-    u32 un4; // 380000 Label font size?
-    u32 un5; // 380000 Label font size again?
+    u32 height; // Don't know if radius or diameter (if circle) / from center or overall (if rectangle)
+    u32 width; // ^^
     std::print(std::string::to_string(sizeof(this)));
     pin_sub_types sub_parts[while($ < block_end-4)];
-    u32 un6;
+    u32 un4; // Seen: 0
 };
 
 // Line Segment
