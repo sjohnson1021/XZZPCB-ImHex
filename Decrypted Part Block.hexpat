@@ -32,10 +32,10 @@ struct sub_type_06 {
 
 // Pins
 struct pin_sub_type_00 {
-    u8 pin_label_identifier;
-    u32 vertical_offset;
-    u32 label_size;
-    char label[label_size];
+    u8 pin_net_identifier;
+    u32 net_index;
+    u32 diode_reading_size;
+    char diode_reading[diode_reading_size];
 };
 
 struct pin_sub_type_01 {
