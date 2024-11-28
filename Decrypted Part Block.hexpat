@@ -14,7 +14,30 @@ struct header {
     char part_group_name[part_group_name_size];
 };
 
-// Labels/Part Names
+// Arc maybe (0x01)
+struct sub_type_01 {
+    u8 sub_type_identifier_01;
+    u32 block_size;
+    u32 layer; // Always 17 (silkscreen) so far    
+    u32 x1;
+    u32 y1;
+    padding[block_size-12]; // Not rendered so not sure
+};
+
+// Line Segment (0x05)
+struct sub_type_05 {
+    u8 sub_type_identifier_05;
+    u32 block_size;
+    u32 layer; // Always 17 (silkscreen) so far
+    u32 x1;
+    u32 y1;
+    u32 x2;
+    u32 y2;
+    u32 scale;
+    padding[4];
+};
+
+// Labels/Part Names (0x06)
 struct sub_type_06 {
     u8 sub_type_identifier_06;
     u32 block_size;
@@ -30,7 +53,7 @@ struct sub_type_06 {
     char label[label_size];
 };
 
-// Pins
+// Pins (0x09)
 struct pin_sub_type_00 {
     u8 pin_net_identifier;
     u32 net_index;
@@ -83,26 +106,15 @@ struct sub_type_09 {
     u32 un4; // Seen: 0
 };
 
-// Line Segment
-struct sub_type_05 {
-    u8 sub_type_identifier_05;
-    u32 block_size;
-    u32 layer; // Always 17 (silkscreen) so far
-    u32 x1;
-    u32 y1;
-    u32 x2;
-    u32 y2;
-    u32 scale;
-    padding[4];
-};
-
 struct sub_blocks {
-    if ($[$] == 0x06) {
+    if ($[$] == 0x01) {
+        sub_type_01 arc_maybe;
+    } else if ($[$] == 0x05) {
+        sub_type_05 line_segment;
+    } else if ($[$] == 0x06) {
         sub_type_06 labels;
     } else if ($[$] == 0x09) {
         sub_type_09 pins;
-    } else if ($[$] == 0x05) {
-        sub_type_05 line_segment;
     } else {
         break;
     }
