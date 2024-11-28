@@ -70,7 +70,7 @@ struct sub_type_09 {
     u32 un5; // 380000 Label font size again?
     std::print(std::string::to_string(sizeof(this)));
     pin_sub_types sub_parts[while($ < block_end-4)];
-    u32 net_index;
+    u32 un6;
 };
 
 // Line Segment
