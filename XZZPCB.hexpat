@@ -461,7 +461,7 @@ struct post_v6 {
 ///////////////////////////////////
 
 file_header_s header @ 0;
-main_data_block outline[60000] @ $; // Highest I've seen is ~56k
+main_data_block main_data_block[while(!std::mem::eof())] @ $;
 images_block images @ $;
 net_block nets @ $;
 if (std::mem::eof()) { // To handle files without v6v655
