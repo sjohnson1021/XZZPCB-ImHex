@@ -298,7 +298,9 @@ struct post_v6_params {
         padding[break_post_v6()];
         break;
     }
-    padding[seperator_string_length];
+    if (std::mem::read_string($, seperator_string_length) == seperator_string) {
+        padding[seperator_string_length];    
+    }
     char part_name[while(std::mem::read_unsigned($, 1) != 0x20)];
     padding[1];
     char part_comment[while(std::mem::read_unsigned($, 1) != 0x20)];
@@ -392,10 +394,17 @@ fn read_v6_header_string_length() {
     if (std::mem::read_unsigned($, 3, 1) == 0x3D3D3D) {
         return 0;
     }
-    while (std::mem::read_unsigned($+header_string_length, 1, 1) != 0x0D && std::mem::read_unsigned($+header_string_length, 1, 1) != 0x0A) {
+    while (std::mem::read_unsigned($+header_string_length, 1, 1) != 0x0D
+    && std::mem::read_unsigned($+header_string_length, 1, 1) != 0x0A
+    && std::mem::read_unsigned($+header_string_length, 1, 1) != 0x20) {
         header_string_length += 1;
+        
     }
-    return header_string_length;
+    if (std::mem::read_unsigned($+header_string_length, 1, 1) == 0x20) {
+            return 0; // For the param type which doesnt have a header :/
+    } else {
+        return header_string_length;
+    }
 };
 
 struct post_v6 {
