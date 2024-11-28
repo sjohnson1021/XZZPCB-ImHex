@@ -46,11 +46,21 @@ struct pin_sub_type_01 {
     }
 };
 
+struct pin_sub_type_02 {
+    u8 pin_unknown_02_identifier;
+    u32 int1;
+    if (int1 > 0) {
+        u32 int2;
+    }
+};
+
 struct pin_sub_types {
     if ($[$] == 0x00) {
         pin_sub_type_00 pin_sub_00;
     } else if ($[$] == 0x01) {
         pin_sub_type_01 pin_sub_01;
+    } else if ($[$] == 0x02) {
+        pin_sub_type_02 pin_sub_02;
     }
 };
 
@@ -99,5 +109,4 @@ struct sub_blocks {
 };
 
 header header @ 0x0;
-//sub_blocks sub_blocks[8] @ $;
 sub_blocks sub_blocks[while($ <= part_size)] @ $;
