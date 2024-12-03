@@ -4,6 +4,7 @@ XZZPCB file format reader using ImHex ([WerWolv/ImHex](https://github.com/WerWol
 
 With help from Paul Daniels ([@inflex](https://github.com/inflex)), Muerto ([@MuertoGB](https://github.com/MuertoGB)), and more
 
+(Decryption not necessary to open in my OBV fork, only used to examine the file structure in ImHex) 
 **XZZPCB_Decrypt.py usage:**
 
 Decrypt and write to single file:
