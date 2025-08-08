@@ -77,6 +77,14 @@ struct pin_sub_type_02 {
     }
 };
 
+struct pin_sub_type_03 {
+    u8 pin_unknown_03_identifier;
+    u32 int1;
+    if (int1 > 0) {
+        u32 int2;
+    }
+};
+
 struct pin_sub_types {
     if ($[$] == 0x00) {
         pin_sub_type_00 pin_sub_00;
@@ -84,6 +92,8 @@ struct pin_sub_types {
         pin_sub_type_01 pin_sub_01;
     } else if ($[$] == 0x02) {
         pin_sub_type_02 pin_sub_02;
+    } else if ($[$] == 0x03) {
+        pin_sub_type_03 pin_sub_03;
     }
 };
 

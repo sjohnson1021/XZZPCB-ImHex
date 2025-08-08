@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple DES Decryption Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .output {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 20px 0;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Simple DES Decryption Test</h1>
+      <p>
+        This page tests the DES decryption functionality with a known test case.
+      </p>
+
+      <button onclick="runTest()">Run DES Test</button>
+      <button onclick="clearOutput()">Clear Output</button>
+
+      <div id="output" class="output"></div>
+    </div>
+
+    <!-- CryptoJS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <script>
+      const output = document.getElementById("output");
+
+      function log(message) {
+        output.textContent += message + "\n";
+        output.scrollTop = output.scrollHeight;
+      }
+
+      function clearOutput() {
+        output.textContent = "";
+      }
+
+      function runTest() {
+        log("=== DES Decryption Test ===");
+
+        // Test key from Python file
+        const testKey = "DCFC12AC00000000";
+        const testMessage = "Hello World!";
+
+        log(`Test Key: ${testKey}`);
+        log(`Test Message: "${testMessage}"`);
+        log("");
+
+        try {
+          // Convert hex key to WordArray
+          const keyBytes = new Uint8Array(testKey.length / 2);
+          for (let i = 0; i < testKey.length; i += 2) {
+            keyBytes[i / 2] = parseInt(testKey.substr(i, 2), 16);
+          }
+          const keyHex = CryptoJS.lib.WordArray.create(keyBytes);
+
+          log(
+            "Key bytes:",
+            Array.from(keyBytes)
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join(" ")
+          );
+          log("");
+
+          // Encrypt
+          log("Encrypting...");
+          const encrypted = CryptoJS.DES.encrypt(testMessage, keyHex, {
+            mode: CryptoJS.mode.ECB,
+            padding: CryptoJS.pad.Pkcs7,
+          });
+
+          log("Encrypted (base64):", encrypted.toString());
+          log("");
+
+          // Decrypt
+          log("Decrypting...");
+          const decrypted = CryptoJS.DES.decrypt(encrypted, keyHex, {
+            mode: CryptoJS.mode.ECB,
+            padding: CryptoJS.pad.Pkcs7,
+          });
+
+          const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
+          log("Decrypted text:", decryptedText);
+          log("");
+
+          if (decryptedText === testMessage) {
+            log("✓ SUCCESS: Decryption test passed!");
+          } else {
+            log("✗ FAILED: Decryption test failed!");
+            log(`Expected: "${testMessage}"`);
+            log(`Got: "${decryptedText}"`);
+          }
+        } catch (error) {
+          log(`✗ ERROR: ${error.message}`);
+        }
+
+        log("=== Test Complete ===");
+      }
+
+      // Auto-run test on page load
+      window.addEventListener("load", function () {
+        log(
+          "Page loaded. CryptoJS available:",
+          typeof CryptoJS !== "undefined"
+        );
+        log("");
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,92 @@
+/* Full-screen layout */
+
+/* Color palette for PCB layers */
+:root {
+  --layer-0: #C83434;
+  --layer-1: #7FC87F;
+  --layer-2: #ce7d2c;
+  --layer-3: #4fcbcb;
+  --layer-4: #db628b;
+  --layer-5: #a7a5c6;
+  --layer-6: #28ccd9;
+  --layer-7: #e8b2a7;
+  --layer-8: #f2eda1;
+  --layer-9: #8dcb81;
+  --layer-10: #ed7c33;
+  --layer-11: #5bc3eb;
+  --outline: #d0d2cd;
+  --silkscreen: #f2eda1;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: sans-serif;
+}
+
+/* Fixed control panel */
+#controls {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(40, 40, 40, 0.9);
+  padding: 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#controls span {
+  color: white;
+  margin-right: 8px;
+}
+
+#controls button {
+  margin: 4px 2px;
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #333;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+}
+
+#controls button:hover {
+  background: #444;
+}
+
+#controls button.active {
+  background: #555;
+  border-color: #777;
+}
+
+#controls button::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--layer-color, #888);
+  flex-shrink: 0;
+}
+
+/* SVG should fill the viewport */
+#pcb {
+  width: 100%;
+  height: 100%;
+  background: #001023;
+  cursor: grab;
+}
+
+#pcb:active {
+  cursor: grabbing;
+}
+

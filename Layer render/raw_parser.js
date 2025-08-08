@@ -1,0 +1,464 @@
+/* raw_parser.js
+ * Parser for raw PCB files based on the ImHex pattern structure
+ * Handles binary data directly instead of pre-processed JSON
+ */
+
+class RawPCBParser {
+  constructor() {
+    this.dataView = null;
+    this.offset = 0;
+    this.mainDataBlocksSize = 0;
+    
+    // DES key from Python file (hex format)
+    this.MASTER_KEY = "DCFC12AC00000000";
+  }
+
+  // Initialize parser with ArrayBuffer
+  init(arrayBuffer) {
+    this.dataView = new DataView(arrayBuffer);
+    this.offset = 0;
+    
+    // Parse file header
+    this.parseFileHeader();
+  }
+
+  // Helper method to convert hex string to bytes
+  hexToBytes(hexString) {
+    const bytes = new Uint8Array(hexString.length / 2);
+    for (let i = 0; i < hexString.length; i += 2) {
+      bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
+    }
+    return bytes;
+  }
+
+  // DES decryption method based on HTML file
+  decryptWithDES(encryptedData) {
+    // Check if CryptoJS is available
+    if (typeof CryptoJS === 'undefined') {
+      throw new Error('CryptoJS is not available. Please include the CryptoJS library before using this parser.');
+    }
+    
+    // Convert hex key to bytes
+    const keyBytes = this.hexToBytes(this.MASTER_KEY);
+    
+    // Convert key bytes to CryptoJS WordArray
+    const keyHex = CryptoJS.lib.WordArray.create(keyBytes);
+    
+    // Convert encrypted data to base64 for CryptoJS
+    const encryptedBase64 = btoa(String.fromCharCode.apply(null, encryptedData));
+    
+    // Decrypt using DES in ECB mode with PKCS7 padding
+    const decrypted = CryptoJS.DES.decrypt(
+      {
+        ciphertext: CryptoJS.enc.Base64.parse(encryptedBase64)
+      },
+      keyHex,
+      {
+        mode: CryptoJS.mode.ECB,
+        padding: CryptoJS.pad.Pkcs7
+      }
+    );
+    
+    // Convert decrypted WordArray to Uint8Array
+    const decryptedBytes = new Uint8Array(decrypted.words.length * 4);
+    for (let i = 0; i < decrypted.words.length; i++) {
+      const word = decrypted.words[i];
+      decryptedBytes[i * 4] = (word >>> 24) & 0xFF;
+      decryptedBytes[i * 4 + 1] = (word >>> 16) & 0xFF;
+      decryptedBytes[i * 4 + 2] = (word >>> 8) & 0xFF;
+      decryptedBytes[i * 4 + 3] = word & 0xFF;
+    }
+    
+    // Remove padding if present
+    const paddingLength = decryptedBytes[decryptedBytes.length - 1];
+    if (paddingLength <= 8 && paddingLength > 0) {
+      // Check if padding is valid
+      let validPadding = true;
+      for (let i = decryptedBytes.length - paddingLength; i < decryptedBytes.length; i++) {
+        if (decryptedBytes[i] !== paddingLength) {
+          validPadding = false;
+          break;
+        }
+      }
+      if (validPadding) {
+        return decryptedBytes.slice(0, decryptedBytes.length - paddingLength);
+      }
+    }
+    
+    return decryptedBytes;
+  }
+
+  // Parse file header structure
+  parseFileHeader() {
+    // Step 1: Skip filetype signature (11 bytes) and padding (21 bytes)
+    console.log(`parseFileHeader: Skipping filetype signature and padding (32 bytes) at offset ${this.offset}`);
+    this.offset += 32;
+
+    // Step 2: Read header addresses size
+    const headerAddressesSize = this.dataView.getUint32(this.offset, true);
+    console.log(`parseFileHeader: Read headerAddressesSize = ${headerAddressesSize} at offset ${this.offset}`);
+    this.offset += 4;
+
+    // Step 3: Read image block start (relative to 0x20)
+    const imageBlockStart = this.dataView.getUint32(this.offset, true);
+    console.log(`parseFileHeader: Read imageBlockStart = ${imageBlockStart} at offset ${this.offset}`);
+    this.offset += 4;
+
+    // Step 4: Read net block start (relative to 0x20)
+    const netBlockStart = this.dataView.getUint32(this.offset, true);
+    console.log(`parseFileHeader: Read netBlockStart = ${netBlockStart} at offset ${this.offset}`);
+    this.offset += 4;
+
+    // Step 5: Skip padding (20 bytes)
+    console.log(`parseFileHeader: Skipping padding (20 bytes) at offset ${this.offset}`);
+    this.offset += 20;
+
+    // Step 6: Read main data blocks size (always at 0x40)
+    this.mainDataBlocksSize = this.dataView.getUint32(0x40, true);
+    this.offset += 4;
+    console.log(`parseFileHeader: Read mainDataBlocksSize = ${this.mainDataBlocksSize} at offset 0x40`);
+
+    // Final summary
+    console.log('File header parsed:', {
+      headerAddressesSize,
+      imageBlockStart,
+      netBlockStart,
+      mainDataBlocksSize: this.mainDataBlocksSize
+    });
+  }
+
+  // Parse main data blocks
+  parseMainDataBlocks() {
+    const blocks = [];
+    const startOffset = this.offset;
+    const endOffset = startOffset + this.mainDataBlocksSize;
+    
+    while (this.offset < endOffset && this.offset < this.dataView.byteLength) {
+      // Check for end of data
+      if (this.offset >= endOffset) break;
+      
+      // Check for padding (4 zero bytes)
+      const paddingCheck = this.dataView.getUint32(this.offset, true);
+      if (paddingCheck === 0) {
+        this.offset += 4;
+        continue;
+      }
+
+      // Read block type
+      const blockType = this.dataView.getUint8(this.offset);
+      this.offset += 1;
+      
+      let block;
+      switch (blockType) {
+        case 0x01:
+          block = this.parseType01(); // ARC
+          break;
+        case 0x02:
+          block = this.parseType02(); // VIA
+          break;
+        case 0x03:
+          block = this.parseType03(); // Unknown
+          break;
+        case 0x04:
+          console.log('Skipping type 0x04 block (1 byte)');
+          this.offset += 1; // Skip one byte (no block_size field in pattern)
+          break;
+        case 0x05:
+          block = this.parseType05(); // SEGMENT
+          break;
+        case 0x06:
+          block = this.parseType06(); // TEXT
+          break;
+        case 0x07:
+          block = this.parseType07(); // DATA
+          break;
+        case 0x08:
+          console.warn('Block type 0x08 found, no handling for this');
+          this.offset += 1; // Skip one byte
+          break;
+        case 0x09:
+          block = this.parseType09(); // TEST_PAD
+          break;
+        default:
+          console.warn(`Unknown block type: 0x${blockType.toString(16)}`);
+          break;
+      }
+      
+      if (block) {
+        blocks.push(block);
+      }
+    }
+    
+    return blocks;
+  }
+
+  // Parse ARC (type 0x01)
+  parseType01() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const layer = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const x1 = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const y1 = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const r = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const angleStart = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const angleEnd = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const scale = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const unknownArc = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    return {
+      ARC: {
+        layer,
+        x1,
+        y1,
+        r,
+        angle_start: angleStart,
+        angle_end: angleEnd,
+        scale,
+        unknown_arc: unknownArc
+      }
+    };
+  }
+
+  // Parse VIA (type 0x02)
+  parseType02() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const x = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const y = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const outerRadius = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const innerRadius = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const layerAIndex = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const layerBIndex = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const netIndex = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const viaTextLength = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    // Read via text
+    const viaText = this.readString(viaTextLength);
+    
+    return {
+      VIA: {
+        x,
+        y,
+        outer_radius: outerRadius,
+        inner_radius: innerRadius,
+        layer_a_index: layerAIndex,
+        layer_b_index: layerBIndex,
+        net_index: netIndex,
+        via_text: viaText
+      }
+    };
+  }
+
+  // Parse unknown type (0x03) - SKIPPED
+  parseType03() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    // Skip the entire block data
+    this.offset += blockSize;
+    
+    console.log(`Skipped type 0x03 block, size: ${blockSize} bytes`);
+    return {}; // Return empty object
+  }
+
+  // Parse SEGMENT (type 0x05)
+  parseType05() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const layer = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const x1 = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const y1 = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const x2 = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const y2 = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const scale = this.dataView.getInt32(this.offset, true);
+    this.offset += 4;
+    
+    const traceNetIndex = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    return {
+      SEGMENT: {
+        layer,
+        x1,
+        y1,
+        x2,
+        y2,
+        scale,
+        trace_net_index: traceNetIndex
+      }
+    };
+  }
+
+  // Parse TEXT (type 0x06)
+  parseType06() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const unknown1 = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const posX = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const posY = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const textSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const divider = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const empty = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    const one = this.dataView.getUint16(this.offset, true);
+    this.offset += 2;
+    
+    const textLength = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    // Read text
+    const text = this.readString(textLength);
+    
+    return {
+      TEXT: {
+        unknown_1: unknown1,
+        pos_x: posX,
+        pos_y: posY,
+        text_size: textSize,
+        divider,
+        empty,
+        one,
+        text_length: textLength,
+        text
+      }
+    };
+  }
+
+  // Parse DATA (type 0x07) - decrypt the data and parse with Type07Parser
+  parseType07() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    // Read the encrypted data
+    const encryptedData = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, blockSize);
+    this.offset += blockSize;
+    
+    console.log(`parseType07: Processing ${blockSize} bytes of encrypted data`);
+    console.log('First 16 bytes of encrypted data:', Array.from(encryptedData.slice(0, 16)));
+    
+    // Decrypt the data
+    let decryptedData;
+    try {
+      decryptedData = this.decryptWithDES(encryptedData);
+      console.log('Decryption successful');
+      console.log('First 16 bytes of decrypted data:', Array.from(decryptedData.slice(0, 16)));
+    } catch (error) {
+      console.error('Decryption failed:', error);
+      decryptedData = encryptedData; // Fallback to original data
+    }
+    
+    // Parse the decrypted data using Type07Parser
+    let parsedData = null;
+    try {
+      // Check if Type07Parser is available
+      if (typeof Type07Parser !== 'undefined') {
+        const type07Parser = new Type07Parser();
+        parsedData = type07Parser.parse(decryptedData.buffer);
+        console.log('Type07 parsing successful:', parsedData);
+      } else {
+        console.warn('Type07Parser not available, returning raw decrypted data');
+      }
+    } catch (error) {
+      console.error('Type07 parsing failed:', error);
+    }
+    
+    return {
+      DATA: {
+        block_size: blockSize,
+        encrypted_data: Array.from(encryptedData),
+        decrypted_data: Array.from(decryptedData),
+        parsed_data: parsedData
+      }
+    };
+  }
+
+  // Parse TEST_PAD (type 0x09) - SKIPPED
+  parseType09() {
+    const blockSize = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+    
+    // Skip the entire block data
+    this.offset += blockSize;
+    
+    console.log(`Skipped type 0x09 block, size: ${blockSize} bytes`);
+    return {}; // Return empty object
+  }
+
+  // Helper method to read strings
+  readString(length) {
+    const decoder = new TextDecoder('utf-8');
+    const stringBytes = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, length);
+    this.offset += length;
+    return decoder.decode(stringBytes);
+  }
+
+  // Main parsing method
+  parse(arrayBuffer) {
+    this.init(arrayBuffer);
+    const blocks = this.parseMainDataBlocks();
+    
+    return {
+      main_data_block: blocks
+    };
+  }
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = RawPCBParser;
+}
