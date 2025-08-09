@@ -74,8 +74,8 @@
       <div class="info">
         <h3>About Type07 Parser</h3>
         <p>
-          This test demonstrates the new Type07Parser that implements the ImHex
-          pattern structure for parsing decrypted type07 data blocks.
+          This test demonstrates the new PartDataParser that implements the
+          ImHex pattern structure for parsing decrypted type07 data blocks.
         </p>
         <p>The parser handles:</p>
         <ul>
@@ -96,7 +96,7 @@
 
       <div class="file-input">
         <input type="file" id="fileInput" accept=".pcb,.json" />
-        <p>Select a PCB file to test the Type07Parser</p>
+        <p>Select a PCB file to test the PartDataParser</p>
       </div>
 
       <div>
@@ -127,7 +127,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <!-- Include the parsers -->
-    <script src="type07_parser.js"></script>
+    <script src="part_data_parser.js"></script>
     <script src="raw_parser.js"></script>
 
     <script>
@@ -148,26 +148,26 @@
       }
 
       function testWithSampleData() {
-        log("Testing Type07Parser with sample data...", "info");
+        log("Testing PartDataParser with sample data...", "info");
 
         // Create sample decrypted data that matches the ImHex pattern
         const sampleData = createSampleType07Data();
 
         try {
-          const type07Parser = new Type07Parser();
-          const result = type07Parser.parse(sampleData.buffer);
+          const partDataParser = new PartDataParser();
+          const result = partDataParser.parse(sampleData.buffer);
 
-          log("Type07Parser test successful!", "success");
+          log("PartDataParser test successful!", "success");
           log("Parsed structure:", "info");
           log("<pre>" + JSON.stringify(result, null, 2) + "</pre>", "info");
         } catch (error) {
-          log("Type07Parser test failed: " + error.message, "error");
+          log("PartDataParser test failed: " + error.message, "error");
           console.error(error);
         }
       }
 
       function testWithCustomData() {
-        log("Testing Type07Parser with custom data...", "info");
+        log("Testing PartDataParser with custom data...", "info");
 
         const hexInput = document.getElementById("hexDataInput").value.trim();
         if (!hexInput) {
@@ -188,14 +188,14 @@
           const dataArray = new Uint8Array(hexBytes);
           log(`Converted ${dataArray.length} bytes from hex input`, "info");
 
-          const type07Parser = new Type07Parser();
-          const result = type07Parser.parse(dataArray.buffer);
+          const partDataParser = new PartDataParser();
+          const result = partDataParser.parse(dataArray.buffer);
 
-          log("Type07Parser test successful!", "success");
+          log("PartDataParser test successful!", "success");
           log("Parsed structure:", "info");
           log("<pre>" + JSON.stringify(result, null, 2) + "</pre>", "info");
         } catch (error) {
-          log("Type07Parser test failed: " + error.message, "error");
+          log("PartDataParser test failed: " + error.message, "error");
           console.error(error);
         }
       }

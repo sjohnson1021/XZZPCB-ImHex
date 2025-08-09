@@ -9,17 +9,7 @@ class RawPCBParser {
     this.offset = 0;
     this.mainDataBlocksSize = 0;
     
-    // DES key from Python file (hex format)
     this.MASTER_KEY = "DCFC12AC00000000";
-  }
-
-  // Initialize parser with ArrayBuffer
-  init(arrayBuffer) {
-    this.dataView = new DataView(arrayBuffer);
-    this.offset = 0;
-    
-    // Parse file header
-    this.parseFileHeader();
   }
 
   // Helper method to convert hex string to bytes
@@ -90,48 +80,49 @@ class RawPCBParser {
 
   // Parse file header structure
   parseFileHeader() {
-    // Step 1: Skip filetype signature (11 bytes) and padding (21 bytes)
-    console.log(`parseFileHeader: Skipping filetype signature and padding (32 bytes) at offset ${this.offset}`);
-    this.offset += 32;
+    // Print the first 0x50 bytes of this.dataView as space-separated hex bytes
+    let bytesStr = "";
+    for (let i = 0; i < 0x50 && i < this.dataView.byteLength; i++) {
+      const b = this.dataView.getUint8(i);
+      bytesStr += b.toString(16).padStart(2, '0') + (i < 0x50 - 1 && i < this.dataView.byteLength - 1 ? " " : "");
+    }
+    console.log(bytesStr);
+    const headerAddressesSize = this.dataView.getUint32(0x20, true);
+    const imageBlockStart = this.dataView.getUint32(0x24, true);
+    const netBlockStart = this.dataView.getUint32(0x28, true);
+    const mainDataBlocksSize = this.dataView.getUint32(0x40, true);
+    // console.log(`parseFileHeader: headerAddressesSize: ${headerAddressesSize}`);
+    // console.log(`parseFileHeader: imageBlockStart: ${imageBlockStart}`);
+    // console.log(`parseFileHeader: netBlockStart: ${netBlockStart}`);
+    // console.log(`parseFileHeader: mainDataBlocksSize: ${mainDataBlocksSize}`);
+    this.mainDataBlocksSize = mainDataBlocksSize;
+    this.offset = 0x44;
+  }
 
-    // Step 2: Read header addresses size
-    const headerAddressesSize = this.dataView.getUint32(this.offset, true);
-    console.log(`parseFileHeader: Read headerAddressesSize = ${headerAddressesSize} at offset ${this.offset}`);
-    this.offset += 4;
-
-    // Step 3: Read image block start (relative to 0x20)
-    const imageBlockStart = this.dataView.getUint32(this.offset, true);
-    console.log(`parseFileHeader: Read imageBlockStart = ${imageBlockStart} at offset ${this.offset}`);
-    this.offset += 4;
-
-    // Step 4: Read net block start (relative to 0x20)
-    const netBlockStart = this.dataView.getUint32(this.offset, true);
-    console.log(`parseFileHeader: Read netBlockStart = ${netBlockStart} at offset ${this.offset}`);
-    this.offset += 4;
-
-    // Step 5: Skip padding (20 bytes)
-    console.log(`parseFileHeader: Skipping padding (20 bytes) at offset ${this.offset}`);
-    this.offset += 20;
-
-    // Step 6: Read main data blocks size (always at 0x40)
-    this.mainDataBlocksSize = this.dataView.getUint32(0x40, true);
-    this.offset += 4;
-    console.log(`parseFileHeader: Read mainDataBlocksSize = ${this.mainDataBlocksSize} at offset 0x40`);
-
-    // Final summary
-    console.log('File header parsed:', {
-      headerAddressesSize,
-      imageBlockStart,
-      netBlockStart,
-      mainDataBlocksSize: this.mainDataBlocksSize
-    });
+  // Helper method to find sequence in array
+  findSequence(array, sequence) {
+    for (let i = 0; i <= array.length - sequence.length; i++) {
+      let found = true;
+      for (let j = 0; j < sequence.length; j++) {
+        if (array[i + j] !== sequence[j]) {
+          found = false;
+          break;
+        }
+      }
+      if (found) {
+        return i;
+      }
+    }
+    return -1; // Sequence not found
   }
 
   // Parse main data blocks
   parseMainDataBlocks() {
     const blocks = [];
     const startOffset = this.offset;
+    console.log(`parseMainDataBlocks: startOffset: ${startOffset}`);
     const endOffset = startOffset + this.mainDataBlocksSize;
+    console.log(`parseMainDataBlocks: endOffset: ${endOffset}`);
     
     while (this.offset < endOffset && this.offset < this.dataView.byteLength) {
       // Check for end of data
@@ -180,7 +171,7 @@ class RawPCBParser {
           block = this.parseType09(); // TEST_PAD
           break;
         default:
-          console.warn(`Unknown block type: 0x${blockType.toString(16)}`);
+          console.warn(`Unknown block type: 0x${blockType.toString(16)} at offset ${this.offset}`);
           break;
       }
       
@@ -379,7 +370,7 @@ class RawPCBParser {
     };
   }
 
-  // Parse DATA (type 0x07) - decrypt the data and parse with Type07Parser
+  // Parse DATA (type 0x07) - decrypt the data and parse with PartDataParser
   parseType07() {
     const blockSize = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
@@ -388,33 +379,33 @@ class RawPCBParser {
     const encryptedData = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, blockSize);
     this.offset += blockSize;
     
-    console.log(`parseType07: Processing ${blockSize} bytes of encrypted data`);
-    console.log('First 16 bytes of encrypted data:', Array.from(encryptedData.slice(0, 16)));
+    // console.log(`parseType07: Processing ${blockSize} bytes of encrypted data`);
+    // console.log('First 16 bytes of encrypted data:', Array.from(encryptedData.slice(0, 16)));
     
     // Decrypt the data
     let decryptedData;
     try {
       decryptedData = this.decryptWithDES(encryptedData);
-      console.log('Decryption successful');
-      console.log('First 16 bytes of decrypted data:', Array.from(decryptedData.slice(0, 16)));
+      // console.log('Decryption successful');
+      // console.log('First 16 bytes of decrypted data:', Array.from(decryptedData.slice(0, 16)));
     } catch (error) {
       console.error('Decryption failed:', error);
       decryptedData = encryptedData; // Fallback to original data
     }
     
-    // Parse the decrypted data using Type07Parser
+    // Parse the decrypted data using PartDataParser
     let parsedData = null;
     try {
-      // Check if Type07Parser is available
-      if (typeof Type07Parser !== 'undefined') {
-        const type07Parser = new Type07Parser();
-        parsedData = type07Parser.parse(decryptedData.buffer);
-        console.log('Type07 parsing successful:', parsedData);
+      // Check if PartDataParser is available
+      if (typeof PartDataParser !== 'undefined') {
+        const partDataParser = new PartDataParser();
+        parsedData = partDataParser.parse(decryptedData.buffer);
+        // console.log('Type07 parsing successful:', parsedData);
       } else {
-        console.warn('Type07Parser not available, returning raw decrypted data');
+        console.warn('PartDataParser not available, returning raw decrypted data');
       }
     } catch (error) {
-      console.error('Type07 parsing failed:', error);
+      console.error('PartData parsing failed:', error);
     }
     
     return {
@@ -449,7 +440,35 @@ class RawPCBParser {
 
   // Main parsing method
   parse(arrayBuffer) {
-    this.init(arrayBuffer);
+    this.dataView = new DataView(arrayBuffer);
+    this.offset = 0;
+
+    // XOR decryption logic for input array
+    if (this.dataView.getUint8(0x10) !== 0x00) {
+      console.log("Applying XOR decryption");
+      const sequence = [0x76, 0x36, 0x76, 0x36, 0x35, 0x35, 0x35, 0x76, 0x36, 0x76, 0x36];
+      const sequenceIndex = this.findSequence(this.dataView, sequence);
+      
+      let xoredDataLength;
+      if (sequenceIndex !== -1) {
+        xoredDataLength = sequenceIndex;
+      } else {
+        xoredDataLength = this.dataView.byteLength;
+      }
+
+      const xorKey = this.dataView.getUint8(0x10);
+      
+      // XOR array byte by byte for xoredDataLength
+      for (let i = 0; i < xoredDataLength; i++) {
+        this.dataView.setUint8(i, this.dataView.getUint8(i) ^ xorKey);
+      }
+      
+      console.log(`Applied XOR decryption with key 0x${xorKey.toString(16)}, length: ${xoredDataLength}`);
+    }
+
+    // Parse file header
+    this.parseFileHeader();
+
     const blocks = this.parseMainDataBlocks();
     
     return {

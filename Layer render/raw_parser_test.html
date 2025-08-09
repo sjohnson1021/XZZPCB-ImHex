@@ -140,10 +140,10 @@
     <!-- CryptoJS Library - Load first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
-    <!-- Type07 Parser - Load before Raw Parser -->
-    <script src="type07_parser.js"></script>
+    <!-- Part Data Parser - Load before Raw Parser -->
+    <script src="part_data_parser.js"></script>
 
-    <!-- Raw Parser - Load after CryptoJS and Type07Parser -->
+    <!-- Raw Parser - Load after CryptoJS and Part Data Parser -->
     <script src="raw_parser.js"></script>
     <script>
       let currentFile = null;
@@ -180,7 +180,7 @@
             <div class="error">
                 <h3>CryptoJS Error</h3>
                 <p>CryptoJS library is not loaded. Please check your internet connection and refresh the page.</p>
-                <p>This is required for DES decryption of type07 data blocks.</p>
+                <p>This is required for DES decryption of part data blocks.</p>
             </div>
           `;
           document.getElementById("results").style.display = "block";

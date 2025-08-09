@@ -1,9 +1,9 @@
-/* type07_parser.js
- * Parser for type07 decrypted data based on ImHex pattern structure
+/* part_data_parser.js
+ * Parser for part/pad data based on ImHex pattern structure
  * Handles the complex nested structure with headers, sub-blocks, and pin types
  */
 
-class Type07Parser {
+class PartDataParser {
   constructor() {
     this.dataView = null;
     this.offset = 0;
@@ -15,7 +15,7 @@ class Type07Parser {
     this.offset = 0;
   }
 
-  // Parse the complete type07 structure
+  // Parse the part/pad structure
   parse(arrayBuffer) {
     this.init(arrayBuffer);
     
@@ -26,9 +26,11 @@ class Type07Parser {
 
     // Parse sub-blocks until we reach part_size
     const partSize = result.header.part_size;
-    const startOffset = this.offset;
     
-    while (this.offset < startOffset + partSize && this.offset < this.dataView.byteLength) {
+    const trimmedBuffer = arrayBuffer.slice(0, 4 + partSize);
+    this.dataView = new DataView(trimmedBuffer);
+    
+    while (this.offset < this.dataView.byteLength) {
       const subBlock = this.parseSubBlock();
       if (subBlock) {
         result.sub_blocks.push(subBlock);
@@ -52,7 +54,7 @@ class Type07Parser {
     };
     this.offset += 4;
 
-    // Skip padding[4]
+    // Skip padding 0x04-0x07
     this.offset += 4;
 
     header.part_x = this.dataView.getUint32(this.offset, true);
@@ -61,13 +63,13 @@ class Type07Parser {
     header.part_y = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
-    // Skip padding[4]
+    // Skip padding 0x10-0x13
     this.offset += 4;
 
     header.visibility = this.dataView.getUint8(this.offset);
     this.offset += 1;
 
-    // Skip padding[1]
+    // Skip padding 0x15
     this.offset += 1;
 
     header.part_group_name_size = this.dataView.getUint32(this.offset, true);
@@ -102,7 +104,7 @@ class Type07Parser {
       case 0x09:
         return this.parseSubType09();
       default:
-        console.warn(`Unknown sub-type identifier: 0x${subTypeIdentifier.toString(16)}`);
+        console.warn(`Unknown sub-type identifier: 0x${subTypeIdentifier.toString(16)} at offset ${this.offset}`);
         return null;
     }
   }
@@ -319,7 +321,7 @@ class Type07Parser {
       case 0x03:
         return this.parsePinSubType03();
       default:
-        console.warn(`Unknown pin sub-type: 0x${pinType.toString(16)}`);
+        console.warn(`Unknown pin sub-type: 0x${pinType.toString(16)} at offset ${this.offset}`);
         return null;
     }
   }
@@ -411,5 +413,5 @@ class Type07Parser {
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = Type07Parser;
+  module.exports = PartDataParser;
 }

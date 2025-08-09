@@ -346,7 +346,7 @@ function renderSegments(json) {
 
   // Type07 overlay toggle
   const type07Btn = document.createElement('button');
-  type07Btn.textContent = 'Type07 Overlay';
+  type07Btn.textContent = 'Pin Rendering';
   type07Btn.classList.add('active'); // Start as active (overlay visible)
   type07Btn.onclick = () => {
     const visible = type07Overlay.getAttribute('display') !== 'none';
