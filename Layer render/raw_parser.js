@@ -28,53 +28,40 @@ class RawPCBParser {
       throw new Error('CryptoJS is not available. Please include the CryptoJS library before using this parser.');
     }
     
-    // Convert hex key to bytes
+    // Helper: Uint8Array -> CryptoJS WordArray (big-endian words)
+    const u8ToWordArray = (u8) => {
+      const words = [];
+      for (let i = 0; i < u8.length; i++) {
+        words[i >>> 2] |= u8[i] << (24 - (i % 4) * 8);
+      }
+      return CryptoJS.lib.WordArray.create(words, u8.length);
+    };
+
+    // Helper: CryptoJS WordArray -> Uint8Array (respect sigBytes)
+    const wordArrayToU8 = (wordArray) => {
+      const { words, sigBytes } = wordArray;
+      const u8 = new Uint8Array(sigBytes);
+      for (let i = 0; i < sigBytes; i++) {
+        u8[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+      }
+      return u8;
+    };
+
+    // Convert hex key to bytes then to WordArray
     const keyBytes = this.hexToBytes(this.MASTER_KEY);
-    
-    // Convert key bytes to CryptoJS WordArray
-    const keyHex = CryptoJS.lib.WordArray.create(keyBytes);
-    
-    // Convert encrypted data to base64 for CryptoJS
-    const encryptedBase64 = btoa(String.fromCharCode.apply(null, encryptedData));
-    
-    // Decrypt using DES in ECB mode with PKCS7 padding
-    const decrypted = CryptoJS.DES.decrypt(
-      {
-        ciphertext: CryptoJS.enc.Base64.parse(encryptedBase64)
-      },
-      keyHex,
-      {
-        mode: CryptoJS.mode.ECB,
-        padding: CryptoJS.pad.Pkcs7
-      }
-    );
-    
-    // Convert decrypted WordArray to Uint8Array
-    const decryptedBytes = new Uint8Array(decrypted.words.length * 4);
-    for (let i = 0; i < decrypted.words.length; i++) {
-      const word = decrypted.words[i];
-      decryptedBytes[i * 4] = (word >>> 24) & 0xFF;
-      decryptedBytes[i * 4 + 1] = (word >>> 16) & 0xFF;
-      decryptedBytes[i * 4 + 2] = (word >>> 8) & 0xFF;
-      decryptedBytes[i * 4 + 3] = word & 0xFF;
-    }
-    
-    // Remove padding if present
-    const paddingLength = decryptedBytes[decryptedBytes.length - 1];
-    if (paddingLength <= 8 && paddingLength > 0) {
-      // Check if padding is valid
-      let validPadding = true;
-      for (let i = decryptedBytes.length - paddingLength; i < decryptedBytes.length; i++) {
-        if (decryptedBytes[i] !== paddingLength) {
-          validPadding = false;
-          break;
-        }
-      }
-      if (validPadding) {
-        return decryptedBytes.slice(0, decryptedBytes.length - paddingLength);
-      }
-    }
-    
+    const keyWA = CryptoJS.lib.WordArray.create(keyBytes);
+
+    // Convert encrypted bytes directly to WordArray to avoid large apply()
+    const cipherWA = u8ToWordArray(encryptedData);
+
+    // Decrypt using DES in ECB mode with PKCS7 padding (padding removed by CryptoJS)
+    const decryptedWA = CryptoJS.DES.decrypt({ ciphertext: cipherWA }, keyWA, {
+      mode: CryptoJS.mode.ECB,
+      padding: CryptoJS.pad.Pkcs7,
+    });
+
+    // Convert to Uint8Array honoring sigBytes
+    const decryptedBytes = wordArrayToU8(decryptedWA);
     return decryptedBytes;
   }
 
