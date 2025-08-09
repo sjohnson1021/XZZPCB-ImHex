@@ -10,6 +10,21 @@ function createSvgElement(type, attrs = {}) {
   return el;
 }
 
+// Helper function to get the display name for a layer
+function getLayerDisplayName(layer, displayMap, OUTLINE_LAYER, SILKSCREEN_LAYER, PART_OUTLINES_LAYER) {
+  if (layer === OUTLINE_LAYER) {
+    return 'Outlines';
+  } else if (layer === SILKSCREEN_LAYER) {
+    return 'Silkscreen';
+  } else if (layer === PART_OUTLINES_LAYER) {
+    return 'Part Outlines';
+  } else if (layer > 16) {
+    return `Layer ${layer}`;
+  } else {
+    return `Layer ${displayMap[layer]}`;
+  }
+}
+
 // Render function encapsulates all drawing logic so we can call it from different loaders
 function renderSegments(json) {
   // Define layer constants first
@@ -377,10 +392,7 @@ function renderSegments(json) {
   layers.forEach(layer => {
     if (layer !== OUTLINE_LAYER && layer !== SILKSCREEN_LAYER && !displayMap[layer] && layer <= 16) return; // skip unpopulated layers <= 16
     const btn = document.createElement('button');
-    const isOutline = layer === OUTLINE_LAYER;
-    const isSilkscreen = layer === SILKSCREEN_LAYER;
-    const isHighLayer = layer > 16;
-    btn.textContent = isOutline ? 'Outlines' : isSilkscreen ? 'Silkscreen' : isHighLayer ? `Layer ${layer}` : `Layer ${displayMap[layer]}`;
+    btn.textContent = getLayerDisplayName(layer, displayMap, OUTLINE_LAYER, SILKSCREEN_LAYER, PART_OUTLINES_LAYER);
 
     const isVisible = defaultVisible.has(layer);
     if (isVisible) btn.classList.add('active');
