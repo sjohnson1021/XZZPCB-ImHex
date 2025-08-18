@@ -186,7 +186,7 @@ struct part_sub_type_09 {
     u32 pin_x;
     u32 pin_y;
     padding[4];
-    padding[4];
+    u32 pin_rotation;
     u32 pin_name_size;
     char pin_name[pin_name_size];
     
@@ -209,7 +209,7 @@ struct type_07 {
     padding[4];
     u32 part_x;
     u32 part_y;
-    padding[4]; // scale maybe
+    u32 part_rotation;
     u8 flag1; // all 1
     u8 flag2; // all 0
     u32 pad_size_length;
