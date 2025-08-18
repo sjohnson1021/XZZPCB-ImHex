@@ -48,6 +48,7 @@ class PartDataParser {
       part_size: this.dataView.getUint32(this.offset, true),
       part_x: 0,
       part_y: 0,
+	  part_rotation:0,
       visibility: 0,
       part_group_name_size: 0,
       part_group_name: ''
@@ -63,7 +64,8 @@ class PartDataParser {
     header.part_y = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
-    // Skip padding 0x10-0x13
+    // Read part rotation value
+	header.part_rotation = this.dataView.getUint32(this.offset,true);
     this.offset += 4;
 
     header.visibility = this.dataView.getUint8(this.offset);
@@ -250,7 +252,7 @@ class PartDataParser {
     const un2 = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
-    const un3 = this.dataView.getUint32(this.offset, true);
+    const pinRotation = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
     const pinNameSize = this.dataView.getUint32(this.offset, true);
@@ -292,7 +294,7 @@ class PartDataParser {
       x,
       y,
       un2,
-      un3,
+      pin_rotation: pinRotation,
       pin_name_size: pinNameSize,
       pin_name: pinName,
       height,
