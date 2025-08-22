@@ -7,17 +7,22 @@ class PartDataParser {
   constructor() {
     this.dataView = null;
     this.offset = 0;
+	this.cur_block_size = 0;
+	this.pin_block_size = 0;
   }
 
   // Initialize parser with decrypted ArrayBuffer
   init(arrayBuffer) {
     this.dataView = new DataView(arrayBuffer);
     this.offset = 0;
+	this.cur_block_size = 0;
+	this.pin_block_size = 0;
   }
 
   // Parse the part/pad structure
-  parse(arrayBuffer) {
+  parse(arrayBuffer, t07blockSize) {
     this.init(arrayBuffer);
+    this.cur_block_size = t07blockSize;
     
     const result = {
       header: this.parseHeader(),
@@ -29,8 +34,8 @@ class PartDataParser {
     
     const trimmedBuffer = arrayBuffer.slice(0, 4 + partSize);
     this.dataView = new DataView(trimmedBuffer);
-    
-    while (this.offset < this.dataView.byteLength) {
+    //pin_block_size will be 0 until we reach the pin blocks. This is fine. 
+    while (this.offset + this.pin_block_size < this.dataView.byteLength) {
       const subBlock = this.parseSubBlock();
       if (subBlock) {
         result.sub_blocks.push(subBlock);
@@ -239,7 +244,12 @@ class PartDataParser {
     const blockSize = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
+    // num of pins should be X = ((t07_block_size - (localOffset + blockSize))/(blockSize+5))+1
     const blockEnd = this.offset + blockSize;
+    const pins = [];
+    
+  // Continue reading pins until we reach the end of the block
+  while (this.offset + blockSize <= this.cur_block_size) {
     const un1 = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
@@ -266,30 +276,22 @@ class PartDataParser {
       this.offset += pinNameSize;
     }
 
-    const height = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
     const width = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
-    // Parse pin sub-types
-    const subParts = [];
-    while (this.offset < blockEnd - 4) {
-      const subPart = this.parsePinSubType();
-      if (subPart) {
-        subParts.push(subPart);
-      } else {
-        break;
-      }
-    }
-
-    const un4 = this.dataView.getUint32(this.offset, true);
+    const height = this.dataView.getUint32(this.offset, true);
     this.offset += 4;
 
-    return {
-      type: 'sub_type_09',
-      sub_type_identifier_09: 0x09,
-      block_size: blockSize,
+    const pin_shape = this.dataView.getUint8(this.offset, true);
+    this.offset += 1;
+
+    // Skip the 2 repeated 9-byte blocks and 5-byte outline end block
+    this.offset += 23;
+
+    const netIndex = this.dataView.getUint32(this.offset, true);
+    this.offset += 4;
+
+    pins.push({
       un1,
       x,
       y,
@@ -299,8 +301,19 @@ class PartDataParser {
       pin_name: pinName,
       height,
       width,
-      sub_parts: subParts,
-      un4
+      pin_shape,
+      netIndex
+    });
+	//End single pin while loop We're at the end of the block, and need to use the block sizes for alignment.
+	//There's 8 bytes of padding between pin blocks. (need to verify more consistency throughout files)
+    this.offset += 13;		
+    }
+
+    return {
+      type: 'sub_type_09',
+      sub_type_identifier_09: 0x09,
+      block_size: blockSize,
+      pins
     };
   }
 

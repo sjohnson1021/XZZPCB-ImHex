@@ -52,6 +52,14 @@ function renderSegments(json) {
 
   // Clear any previous render
   svg.innerHTML = '';
+  
+  // Create main transformation group that will contain everything
+  const mainGroup = createSvgElement('g');
+  svg.appendChild(mainGroup);
+  
+  // Create layer container group
+  const layerContainer = createSvgElement('g');
+  mainGroup.appendChild(layerContainer);
 
   // Compute overall bounds
   const layers = [...new Set([
@@ -120,7 +128,7 @@ function renderSegments(json) {
   const defaultVisible = new Set([populatedLayers[0] ?? 1, populatedLayers[populatedLayers.length-1] ?? 16, OUTLINE_LAYER, SILKSCREEN_LAYER, PART_OUTLINES_LAYER]);
   layers.forEach((layer, idx) => {
     layerGroups[layer] = createSvgElement('g');
-    svg.appendChild(layerGroups[layer]);
+    layerContainer.appendChild(layerGroups[layer]);
     layerColors[layer] = layer === OUTLINE_LAYER ? OUTLINE_COLOR : layer === SILKSCREEN_LAYER ? SILKSCREEN_COLOR : layer === PART_OUTLINES_LAYER ? '#FF6B35' : getLayerColor(idx);
     layerGroups[layer].setAttribute('display', defaultVisible.has(layer) ? 'inline' : 'none');
   });
@@ -151,7 +159,7 @@ function renderSegments(json) {
   // Draw vias
   // --- VIA rendering (single overlay, then visibility synced)
   const viaOverlay = createSvgElement('g');
-  svg.appendChild(viaOverlay);
+  mainGroup.appendChild(viaOverlay);
   const viaElements = [];
   const viaTextElements = []; // Store text elements separately for toggling
   let showViaNumbers = true; // Toggle for via numbers visibility
@@ -232,7 +240,7 @@ function renderSegments(json) {
   // Render Type07 parsed data (sub_type_05 and sub_type_09)
   const type07Elements = [];
   const type07Overlay = createSvgElement('g');
-  svg.appendChild(type07Overlay);
+  mainGroup.appendChild(type07Overlay);
 
   // Process type07 blocks from the parsed data
   const type07Blocks = raw.filter(block => block.DATA && block.DATA.parsed_data);
@@ -268,13 +276,47 @@ function renderSegments(json) {
         type07Elements.push(line);
 
       } else if (subBlock.type === 'sub_type_09') {
+        // Our pins are stored in an array called 'pins' under sub_type_09.
+        subBlock.pins.forEach(pin => {
+
         // Render pins as circles at their coordinates
-        const x = (subBlock.x - minX) * scale;
-        const y = mapY(subBlock.y);
+        const x = (pin.x - minX) * scale;
+        const y = mapY(pin.y);
         
+        var width = pin.width || 10000;
+        var height = pin.height || 10000;
+
+        // Check if the pin is rectangular, or circular
+        if (pin.pin_shape == 2) { // Rectangular pin
+            // Create a group for the pin to handle transformations
+            const pinGroup = createSvgElement('g');
+            
+            // Convert rotations to degrees and invert them
+            const pin_rotation = -((pin.pin_rotation || 0) / 10000); // Convert to degrees and invert
+            const total_rotation = (pin_rotation) % 360;
+            
+            // Create rectangle centered at origin
+            const pinRectangle = createSvgElement('rect', {
+                width: width * scale,
+                height: height * scale,
+                x: -((width * scale) / 2),  // Center the rectangle
+                y: -((height * scale) / 2),
+                fill: 'white',
+                'fill-opacity': 0.6,
+            });
+
+            // Add transform to group to handle both translation and rotation
+            pinGroup.setAttribute('transform', 
+                `translate(${x},${y}) ` +
+                `rotate(${total_rotation})`
+            );
+            
+            pinGroup.appendChild(pinRectangle);
+            type07Overlay.appendChild(pinGroup);
+            type07Elements.push(pinGroup);
+        }
+        else if (pin.pin_shape == 1){
         // Use average of width and height for circle size with better bounds checking
-        const width = subBlock.width || 10000;
-        const height = subBlock.height || 10000;
         const pinSize = Math.min(width,height)/2;
         const radius = Math.max(Math.min(pinSize * scale, 20), 0.1); // Clamp between 0.001 and 1
         
@@ -289,6 +331,7 @@ function renderSegments(json) {
         type07Elements.push(pinCircle);
       }
     });
+   }});
   });
 
   // Draw arcs

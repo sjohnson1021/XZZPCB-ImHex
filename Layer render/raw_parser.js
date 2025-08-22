@@ -386,7 +386,7 @@ class RawPCBParser {
       // Check if PartDataParser is available
       if (typeof PartDataParser !== 'undefined') {
         const partDataParser = new PartDataParser();
-        parsedData = partDataParser.parse(decryptedData.buffer);
+        parsedData = partDataParser.parse(decryptedData.buffer, blockSize);
         // console.log('Type07 parsing successful:', parsedData);
       } else {
         console.warn('PartDataParser not available, returning raw decrypted data');
