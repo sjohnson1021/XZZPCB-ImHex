@@ -1,27 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
     <title>PCB Layer Renderer</title>
 
     <!-- External stylesheet -->
-    <link rel="stylesheet" href="render_layers.css" />
+    <link rel="stylesheet" href="./render_layers.css">
 
     <!-- svg-pan-zoom for effortless zooming & panning -->
-    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script> -->
+    <script>
+      function toggleState(el) {
+        let targetElement = document.getElementById(el);
+        targetElement.dataset.active = !(
+          targetElement.dataset.active === "true"
+        );
+      }
+        
+    </script>
   </head>
   <body>
-    <div id="controls">Loading…</div>
-    <svg id="pcb" xmlns="http://www.w3.org/2000/svg"></svg>
-
+    <div id="control-wrap" class="panel panel-center" data-active="true">
+      <a
+        class="panel-toggle panel-toggle-right"
+        onclick="toggleState('control-wrap')"
+      >
+        <svg width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+          <g>
+            <path
+              transform="rotate(30 33.7466 18.1032)"
+              stroke="#000000"
+              id="svg_1"
+              d="m10.15934,38.74206l23.58728,-41.27774l23.58728,41.27774l-47.17455,0z"
+              stroke-opacity="0"
+              fill="#000000"
+            />
+          </g>
+        </svg>
+      </a>
+      <section id="controls">Loading…</section>
+    </div>
+    <svg id="pcb" xmlns="http://w3.org/2000/svg"></svg>
+    <section id="navContainer" class="panel panel-bottom" data-active="false">
+      <a class="panel-toggle panel-toggle-top" onclick="toggleState('navContainer')">
+        <svg width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+          <g>
+            <path
+              transform="rotate(30 33.7466 18.1032)"
+              stroke="#000000"
+              id="svg_2"
+              d="m10.15934,38.74206l23.58728,-41.27774l23.58728,41.27774l-47.17455,0z"
+              stroke-opacity="0"
+              fill="#000000"
+            />
+          </g>
+        </svg>
+      </a>
+      <svg id="navControls"></svg>
+    </section>
+    <div id="progressOverlay" class="progress-overlay">
+      <div class="progress-modal">
+          <div class="circuit-throbber">
+              <div class="circuit-board">
+                  <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                          <filter id="glow-filter" x="-50%" y="-50%" width="200%" height="200%">
+                              <feGaussianBlur stdDeviation="2" result="coloredBlur"></feGaussianBlur>
+                              <feMerge>
+                                  <feMergeNode in="coloredBlur"></feMergeNode>
+                                  <feMergeNode in="SourceGraphic"></feMergeNode>
+                              </feMerge>
+                          </filter>
+                      </defs>
+  
+                      <!-- Chip Component -->
+                      <g id="part">
+                          <rect x="24" y="24" width="32" height="32" rx="2" class="chip"></rect>
+                          <g id="pins">
+                              <rect x="26" y="24" width="2" height="5" class="pin"></rect>
+                              <rect x="39" y="24" width="2" height="5" class="pin"></rect>
+                              <rect x="52" y="24" width="2" height="5" class="pin"></rect>
+                              <rect x="26" y="51" width="2" height="5" class="pin"></rect>
+                              <rect x="52" y="51" width="2" height="5" class="pin"></rect>
+                              <rect x="24" y="39" width="5" height="2" class="pin"></rect>
+                          </g>
+                      </g>
+  
+                      <!-- Static Pads -->
+                      <circle cx="15" cy="15" r="3" class="pad"></circle>
+                      <circle cx="65" cy="15" r="3" class="pad"></circle>
+                      <circle cx="15" cy="65" r="3" class="pad"></circle>
+                      <circle cx="65" cy="70" r="3" class="pad"></circle>
+                      <circle cx="40" cy="7" r="3" class="pad"></circle>
+                      <circle cx="10" cy="40" r="3" class="pad"></circle>
+  
+                      <!-- Static Traces -->
+                      <path d="M 15 15 L 27 15 L 27 24" class="trace-path"></path>
+                      <path d="M 65 15 L 53 15 L 53 24" class="trace-path"></path>
+                      <path d="M 15 65 L 27 65 L 27 56" class="trace-path"></path>
+                      <path d="M 65 70 L 53 70 L 53 56" class="trace-path"></path>
+                      <path d="M 40 7 L 40 24" class="trace-path"></path>
+                      <path d="M 10 40 L 24 40" class="trace-path"></path>
+  
+                      <!-- Animated Signals (now controlled by JS) -->
+                      <circle id="btm-signal" class="signal" cx="15" cy="65" r="2.5"></circle>
+                      <circle id="tr-signal" class="signal" cx="40" cy="7" r="2.5"></circle>
+                      <circle id="tl-signal" class="signal" cx="10" cy="40" r="2.5"></circle>
+                  </svg>
+              </div>
+          </div>
+          <div class="progress-title">Parsing PCB File</div>
+          <div class="progress-stage" id="progressStage">Initializing...</div>
+          <div class="progress-bar-container">
+              <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-percentage" id="progressPercent">0%</div>
+      </div>
+    </div>
     <!-- Include CryptoJS for DES decryption -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <!-- Include the parsers -->
-    <script src="part_data_parser.js"></script>
-    <script src="raw_parser.js"></script>
+    <!-- <script src="part_data_parser.js"></script> -->
+    <script type="module" src="raw_parser.js"></script>
 
     <!-- Custom renderer logic -->
-    <script src="render_layers.js"></script>
+    <script src="./render_layers.js"></script>
+    <script src="./svg_nav.js"></script>
   </body>
 </html>

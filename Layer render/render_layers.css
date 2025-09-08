@@ -1,3 +1,10 @@
+@media only screen and (orientation: landscape) {
+
+  #control-wrap.panel.left[data-active="false"] {
+    transform: matrix3d(1, -0.4, 0, 0.00175, 0, 0.85, 0, 0, 0, 0, 1, 0, -160, -210, 0, 1);
+  }
+}
+
 /* Full-screen layout */
 
 /* Color palette for PCB layers */
@@ -16,7 +23,108 @@
   --layer-11: #5bc3eb;
   --outline: #d0d2cd;
   --silkscreen: #f2eda1;
+  --part-outlines: #FF6B35;
+
+  /* Layer Numbers */
+  --silkscreen_num: "17";
+  --outlines_num: "28";
+  --part_outlines_num: "29";
+  --pins_num: "32";
 }
+
+/* Visibility toggles */
+
+
+#pcb [data-layer]
+{
+  display: none;
+}
+
+#control-wrap[data-active-layers~="0"] ~ #pcb [data-layer="0"],
+#control-wrap[data-active-layers~="1"] ~ #pcb [data-layer="1"],
+#control-wrap[data-active-layers~="2"] ~ #pcb [data-layer="2"],
+#control-wrap[data-active-layers~="3"] ~ #pcb [data-layer="3"],
+#control-wrap[data-active-layers~="4"] ~ #pcb [data-layer="4"],
+#control-wrap[data-active-layers~="5"] ~ #pcb [data-layer="5"],
+#control-wrap[data-active-layers~="6"] ~ #pcb [data-layer="6"],
+#control-wrap[data-active-layers~="7"] ~ #pcb [data-layer="7"],
+#control-wrap[data-active-layers~="8"] ~ #pcb [data-layer="8"],
+#control-wrap[data-active-layers~="9"] ~ #pcb [data-layer="9"],
+#control-wrap[data-active-layers~="10"] ~ #pcb [data-layer="10"],
+#control-wrap[data-active-layers~="11"] ~ #pcb [data-layer="11"],
+#control-wrap[data-active-layers~="12"] ~ #pcb [data-layer="12"],
+#control-wrap[data-active-layers~="13"] ~ #pcb [data-layer="13"],
+#control-wrap[data-active-layers~="14"] ~ #pcb [data-layer="14"],
+#control-wrap[data-active-layers~="15"] ~ #pcb [data-layer="15"],
+#control-wrap[data-active-layers~="16"] ~ #pcb [data-layer="16"],
+#control-wrap[data-active-layers~="17"] ~ #pcb [data-layer="17"],
+#control-wrap[data-active-layers~="18"] ~ #pcb [data-layer="18"],
+#control-wrap[data-active-layers~="19"] ~ #pcb [data-layer="19"],
+#control-wrap[data-active-layers~="20"] ~ #pcb [data-layer="20"],
+#control-wrap[data-active-layers~="21"] ~ #pcb [data-layer="21"],
+#control-wrap[data-active-layers~="22"] ~ #pcb [data-layer="22"],
+#control-wrap[data-active-layers~="23"] ~ #pcb [data-layer="23"],
+#control-wrap[data-active-layers~="24"] ~ #pcb [data-layer="24"],
+#control-wrap[data-active-layers~="25"] ~ #pcb [data-layer="25"],
+#control-wrap[data-active-layers~="26"] ~ #pcb [data-layer="26"],
+#control-wrap[data-active-layers~="27"] ~ #pcb [data-layer="27"],
+#control-wrap[data-active-layers~="28"] ~ #pcb [data-layer="28"],
+#control-wrap[data-active-layers~="29"] ~ #pcb [data-layer="29"],
+#control-wrap[data-active-layers~="30"] ~ #pcb [data-layer="30"],
+#control-wrap[data-active-layers~="31"] ~ #pcb [data-layer="31"],
+#control-wrap[data-active-layers~="32"] ~ #pcb [data-layer="32"]
+{
+  display: inline;
+}
+
+/* Styles for part Types */
+
+.Resistor *{
+  fill:#777;
+  fill-opacity: .9;
+}
+.Resistor line{
+  stroke: #333;
+}
+
+.Capacitor *{
+  fill:#9c7009;
+  fill-opacity: .9;
+}
+.Connector *{
+  fill:#444;
+  fill-opacity: .9; 
+}
+.Inductor * {
+  fill:#cce
+}
+.pin-rect, .pin-circle, .pin-rounded-rect {
+  fill: white;
+  fill-opacity: 0.6;
+}
+
+.pin-rounded-rect {
+  stroke-width: 0.1px;
+}
+
+.pin-hole {
+  fill: rgb(0, 16, 35);
+  fill-opacity: 1;
+}
+line{
+  stroke-width: calc(var(--base-width,1) * var(--width-scale-factor, 1));
+  stroke-linecap: round;
+}
+
+line[data-layer="17"]{
+  stroke: var(--silkscreen);
+  stroke-opacity: 1.0;
+}
+line[data-layer="29"] {
+  stroke:var(--part-outlines);
+  stroke-opacity: 1.0;
+}
+
 
 html,
 body {
@@ -26,18 +134,451 @@ body {
   font-family: sans-serif;
 }
 
-/* Fixed control panel */
-#controls {
+.highlight {
+  stroke: #fff;
+  fill-opacity: 1;
+  filter: drop-shadow(0px 0px .5px #fff) !important;
+  /* A bright highlight color */
+  stroke-width: 1.33;
+  /* Slightly thicker when highlighted */
+  transition-behavior: normal;
+  transition-duration: 150ms;
+  transition-property: fill-opacity; 
+  transition-timing-function: linear;
+  transition-delay:0s;
+}
+
+/* path:hover,rect:hover,circle:hover{
+filter: drop-shadow(0px 0px 1px);
+} */
+#pcb line,
+#pcb path,
+#pcb rect,
+#pcb circle,
+#pcb polygon {
+  cursor: default;
+  filter: drop-shadow();
+  will-change: auto;
+}
+/* Progress Modal Styles */
+.progress-overlay {
   position: fixed;
-  top: 10px;
-  left: 10px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 16, 35, 0.85);
+  z-index: 10000 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  position:fixed;
+  will-change: transform, opacity;
+  border:20px transparent;
+  backface-visibility: hidden;
+}
+
+.progress-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.progress-modal {
+    background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+    border: 2px solid #4a5568;
+    border-radius: 16px;
+    padding: 40px;
+    min-width: 400px;
+    max-width: 500px;
+    text-align: center;
+    box-shadow:
+        0 25px 50px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s ease;
+    color: white;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.progress-overlay.active .progress-modal {
+    transform: scale(1) translateY(0);
+}
+
+.circuit-throbber {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 24px;
+    position: relative;
+    will-change: transform;
+    animation: circuit-pulse 2s ease-in-out infinite;
+}
+.circuit-board {
+    width: 100%;
+    height: 100%;
+    border: 3px solid #4CAF50;
+    border-radius: 12px;
+    position: relative;
+    background: #094D1C;
+    animation: circuit-glow 1.5s ease-in-out infinite alternate;
+    overflow: hidden; /* Hide anything that goes outside the border radius */
+    z-index: 10002;
+}
+.circuit-board::before{
+    content:'';
+    width:100%;
+    height:100%;
+    box-shadow: 0 0 25px 3px rgba(129, 199, 132, 1);
+    animation: shadow-pulse 1.5s ease-in-out infinite alternate;
+
+    display:block;
+    position:fixed;
+}
+
+.circuit-board svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* CSS Animations */
+@keyframes shadow-pulse{
+    0%{
+        opacity: .1;
+    }
+    100%{
+        opacity: 1;
+    }
+}
+@keyframes circuit-glow {
+    0% { 
+        border-color: #4CAF50;
+        /*box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);*/
+    }
+    100% { 
+        border-color: #81C784;
+        /*box-shadow: 0 0 30px rgba(129, 199, 132, 0.5);*/
+    }
+}
+
+@keyframes circuit-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+
+/* Static SVG Elements */
+.chip {
+    fill: #2d3748;
+    stroke: #4a5568;
+    stroke-width: 1.5;
+}
+
+.trace-path {
+    fill: none;
+    stroke: #a5e7a2;
+    stroke-width: 2;
+    stroke-opacity: 0.6;
+}
+
+.pad,
+.pin {
+    fill: #ffc691;
+    fill-opacity: 0.6;
+}
+
+.signal {
+    fill: #38bdf8;
+    filter: url(#glow-filter);
+    opacity: 0;
+    r: 2.5;
+}
+
+@keyframes move-along {
+  to { offset-distance: 100%; }
+}
+@keyframes fade-dot-t {
+  0%,100%{
+    opacity: 0;
+  }
+  20%,80%{
+    opacity: 1;
+  }
+  39%{
+    opacity: 0;
+  }
+  50%{
+    opacity: 0;
+  }
+}
+@keyframes fade-dot-btm {
+  0%,100%{
+    opacity: 0;
+  }
+  20%,80%{
+    opacity: 1;
+  }
+  39%{opacity: .4;}
+  40%{
+    opacity: .1;
+  }
+  45%{
+    opacity: 0;
+  }
+  50%{
+    opacity: .5;
+  }
+}
+/* you’ll need the -webkit- prefix for some Safari versions */
+#btm-signal {
+  /* full SVG path string exactly as in your <path> d="" */
+  offset-path: path("M 0 0 L 12 0 L 12 -8 M 38 -10 L 38 5 L 50 5"
+  );
+  offset-distance: 0%;
+  offset-rotate: 0deg; /* keep dot level */
+  animation:
+    move-along 2.5s linear infinite,
+    fade-dot-btm   2.5s linear infinite;
+}
+#tl-signal {
+  /* full SVG path string exactly as in your <path> d="" */
+  offset-path: path("M 0 0 L 17 0 M 17 -10 L 17 -25 L 5 -25"
+  );
+  offset-distance: 0%;
+  offset-rotate: 0deg; /* keep dot level */
+  animation:
+    move-along 2.5s linear infinite,
+    fade-dot-t   2.5s linear infinite;
+}
+#tr-signal {
+  /* full SVG path string exactly as in your <path> d="" */
+  offset-path: path("M 0 0 L 0 18 M 13 17 L 13 8 L 25 8"
+  );
+  offset-distance: 0%;
+  offset-rotate: 0deg; /* keep dot level */
+  animation:
+    move-along 2.5s linear infinite,
+    fade-dot-t   2.5s linear infinite;
+}
+
+/* Progress Bar Styles */
+.progress-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #E2E8F0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.progress-stage {
+    font-size: 16px;
+    color: #A0AEC0;
+    margin-bottom: 24px;
+    min-height: 20px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #81C784, #4CAF50);
+    background-size: 200% 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    animation: progress-shine 2s linear infinite;
+    min-width: 2px;
+    width: 0%;
+}
+
+@keyframes progress-shine {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.progress-percentage {
+    font-size: 18px;
+    font-weight: 600;
+    color: #4CAF50;
+    text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+/* --- REFACTORED PANEL STYLES --- */
+
+.panel {
+  position: fixed;
   background: rgba(40, 40, 40, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   padding: 12px;
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
   color: white;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-height: 90vh;
+  /* Use vh for viewport height consistency */
+  display: flex;
+  flex-direction: column;
+  opacity: .9;
+  /* The transition is the key to the animation */
+  transition: transform 750ms cubic-bezier(0.95, -0.15, 0.2, 1.2), opacity 750ms cubic-bezier(0.95, -0.15, 0.2, 1.2);
+  will-change: transform, opacity,top, left;
+  transform:translate(-50%, -50%);
+}
+
+/* Modifier for the left-side panel */
+.panel-left {
+  top: 50%;
+  left: 0;
+  transform: translate(0, -50%);
+  max-width: 10.5em;
+  max-height:75%;
+  transition:left 300ms linear(0 0%, 0 1.8%, 0.01 3.6%, 0.03 6.35%), transform 750ms cubic-bezier(0.95, -0.15, 0.2, 1.2) ;
+}
+
+/* Inactive state for the left panel (Swinging door effect) */
+.panel-left[data-active="false"] {
+  transform: perspective(600px) translateX(-50%) translateY(-50%) rotateY(45deg) scale(0.85);
+  opacity: 0.65;
+}
+.panel-center
+{
+  transition:transform 0s, left 500ms linear(0 0%, 0 1.8%, 0.01 3.6%, 0.03 6.35%);
+	top:50%;
+	left:50%;
+  z-index: 100;
+}
+.panel-center a.panel-toggle {
+	display: none;
+	visibility: hidden;
+}
+/* Modifier for the bottom-side panel */
+.panel-bottom {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  flex-direction: row;
+  /* Horizontal layout for bottom panel */
+  align-items: center;
+  width: auto;
+  max-height: 50vh;
+}
+/* Inactive state for the bottom panel (Folds down and away) */
+.panel-bottom[data-active="false"] {
+  /* Rotates on the X-axis for a vertical "fold away" effect */
+  transform: perspective(600px) translate(-50%, 100%) rotateX(-45deg);
+  opacity: 0.65;
+}
+
+
+/* --- REFACTORED TOGGLE STYLES --- */
+
+/* Base style for any panel toggle button */
+.panel-toggle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  font-size: 3em;
+  /* Base size */
+  cursor: pointer;
+  scale: .5;
+  /* Making it smaller as in the original */
+  /* This complex timing function creates the "bounce" effect you liked */
+  transition: all 500ms linear(0 0%, 0 2.27%, 0.02 4.53%, 0.04 6.8%, 0.06 9.07%, 0.1 11.33%, 0.14 13.6%, 0.25 18.15%, 0.39 22.7%, 0.56 27.25%, 0.77 31.8%, 1 36.35%, 0.89 40.9%, 0.85 43.18%, 0.81 45.45%, 0.79 47.72%, 0.77 50%, 0.75 52.27%, 0.75 54.55%, 0.75 56.82%, 0.77 59.1%, 0.79 61.38%, 0.81 63.65%, 0.85 65.93%, 0.89 68.2%, 1 72.7%, 0.97 74.98%, 0.95 77.25%, 0.94 79.53%, 0.94 81.8%, 0.94 84.08%, 0.95 86.35%, 0.97 88.63%, 1 90.9%, 0.99 93.18%, 0.98 95.45%, 0.99 97.73%, 1 100%);
+  transition-delay: 200ms;
+  /* Delay to let panel start moving first */
+}
+
+
+/* Modifier to place toggle on the right side */
+.panel-toggle-right {
+  right: -0.45em;
+  top: 50%;
+  transform: translateY(-50%);
+  /* Center it vertically */
+}
+.panel[data-active="false"] .panel-toggle-right {
+  transform: translateY(-50%) rotate(-60deg);
+}
+
+
+/* Modifier to place toggle on the top */
+.panel-toggle-top {
+  top: -1.2em;
+  left: 50%;
+  transform: translateX(-100%) rotate(30deg);
+  padding: .5em;
+  /* Pointing up */
+}
+
+.panel[data-active="false"] .panel-toggle-top {
+  transform: translateX(-100%) rotate(-30deg);
+  /* Rotates from the 'up' position */
+}
+
+
+.panel-toggle svg path {
+  fill: #ccc;
+}
+
+/* Fixed control panel */
+/* Need to force a font on link or use SVG for graphic. Using font-glyph without explicit font, results in invalid/unknown char : ð££ It actually renders as a rectangle with an X.. */
+
+#tgl_controls {
+  position: absolute;
+  right: -0.25em;
+  display: flex;
+  font-size: 3em;
+  cursor: pointer;
+  transition: all 500ms linear(0 0%, 0 2.27%, 0.02 4.53%, 0.04 6.8%, 0.06 9.07%, 0.1 11.33%, 0.14 13.6%, 0.25 18.15%, 0.39 22.7%, 0.56 27.25%, 0.77 31.8%, 1 36.35%, 0.89 40.9%, 0.85 43.18%, 0.81 45.45%, 0.79 47.72%, 0.77 50%, 0.75 52.27%, 0.75 54.55%, 0.75 56.82%, 0.77 59.1%, 0.79 61.38%, 0.81 63.65%, 0.85 65.93%, 0.89 68.2%, 1 72.7%, 0.97 74.98%, 0.95 77.25%, 0.94 79.53%, 0.94 81.8%, 0.94 84.08%, 0.95 86.35%, 0.97 88.63%, 1 90.9%, 0.99 93.18%, 0.98 95.45%, 0.99 97.73%, 1 100%);
+  align-items: center;
+  transition-delay: 300ms;
+  scale: .5;
+}
+
+#tgl_controls svg path {
+  fill: #ccc;
+}
+
+.panel:hover #tgl-controls {
+  will-change: transform, right;
+}
+
+.panel[data-active="false"] #tgl_controls {
+  transform: rotate(-60deg);
+  right: -.45em;
+}
+
+.center a#tgl_controls {
+  display: none;
+  visibility: hidden;
+}
+
+#controls {
+  padding: .5em;
+  overflow: auto;
+  scrollbar-width: thin;
+  text-align: center;
 }
 
 #controls span {
@@ -58,6 +599,8 @@ body {
   align-items: center;
   gap: 8px;
   transition: background-color 0.2s ease;
+  width: 10em;
+  justify-content: center;
 }
 
 #controls button:hover {
@@ -76,6 +619,28 @@ body {
   border-radius: 50%;
   background: var(--layer-color, #888);
   flex-shrink: 0;
+  right: 100%;
+  position: sticky;
+}
+
+#svg-pan-zoom-controls {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+section#info {
+  width: 75%;
+
+}
+
+section#info h3 {
+  clear: both;
+}
+
+section#info textarea {
+  max-width: 100%;
+  overflow: auto;
 }
 
 /* SVG should fill the viewport */
@@ -89,4 +654,61 @@ body {
 #pcb:active {
   cursor: grabbing;
 }
+.resetView{
+  font-weight: bold;
+  font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 1.5em;
+}
 
+/* Rotation controls */
+#navContainer {
+  position: fixed;
+  bottom: 0px;
+  right:0px;
+  left: initial;
+  background: rgba(40, 40, 40, 0.9);
+  padding: 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transform:initial;
+  transition:all 500ms ease-in-out;
+}
+#navContainer[data-active="false"]{
+  transform:translate(0%,100%);
+}
+#navControls{
+  overflow:visible;
+  display:block;
+  width: 220px;
+  height: 170px;
+}
+
+.rotation-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.rotate-button.active {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.rotate-button.active:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rotate-button.active img {
+  width: 32px;
+  height: 32px;
+  filter: invert(1);
+}

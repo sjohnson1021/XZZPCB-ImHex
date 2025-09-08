@@ -1,432 +1,344 @@
-/* part_data_parser.js
+/* part_data_parser.js - Optimized
  * Parser for part/pad data based on ImHex pattern structure
  * Handles the complex nested structure with headers, sub-blocks, and pin types
+ * Optimized for performance with reduced DataView operations
  */
 
+const XY_SCALE = 1; // 10000 if scaling needed
+let isThruHole_part;
+
 class PartDataParser {
-  constructor() {
-    this.dataView = null;
-    this.offset = 0;
-	this.cur_block_size = 0;
-	this.pin_block_size = 0;
-  }
-
-  // Initialize parser with decrypted ArrayBuffer
-  init(arrayBuffer) {
-    this.dataView = new DataView(arrayBuffer);
-    this.offset = 0;
-	this.cur_block_size = 0;
-	this.pin_block_size = 0;
-  }
-
-  // Parse the part/pad structure
-  parse(arrayBuffer, t07blockSize) {
-    this.init(arrayBuffer);
-    this.cur_block_size = t07blockSize;
-    
-    const result = {
-      header: this.parseHeader(),
-      sub_blocks: []
-    };
-
-    // Parse sub-blocks until we reach part_size
-    const partSize = result.header.part_size;
-    
-    const trimmedBuffer = arrayBuffer.slice(0, 4 + partSize);
-    this.dataView = new DataView(trimmedBuffer);
-    //pin_block_size will be 0 until we reach the pin blocks. This is fine. 
-    while (this.offset + this.pin_block_size < this.dataView.byteLength) {
-      const subBlock = this.parseSubBlock();
-      if (subBlock) {
-        result.sub_blocks.push(subBlock);
-      } else {
-        break; // End of sub-blocks
-      }
+    constructor() {
+        this.dataView = null;
+        this.offset = 0;
+        this.cur_block_size = 0;
+        this.pin_block_size = 0;
+        this.textDecoder = new TextDecoder('utf-8'); // Reuse decoder
     }
 
-    return result;
-  }
-
-  // Parse header structure
-  parseHeader() {
-    const header = {
-      part_size: this.dataView.getUint32(this.offset, true),
-      part_x: 0,
-      part_y: 0,
-	  part_rotation:0,
-      visibility: 0,
-      part_group_name_size: 0,
-      part_group_name: ''
-    };
-    this.offset += 4;
-
-    // Skip padding 0x04-0x07
-    this.offset += 4;
-
-    header.part_x = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    header.part_y = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    // Read part rotation value
-	header.part_rotation = this.dataView.getUint32(this.offset,true);
-    this.offset += 4;
-
-    header.visibility = this.dataView.getUint8(this.offset);
-    this.offset += 1;
-
-    // Skip padding 0x15
-    this.offset += 1;
-
-    header.part_group_name_size = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    // Read part group name
-    if (header.part_group_name_size > 0) {
-      const nameBytes = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, header.part_group_name_size);
-      header.part_group_name = new TextDecoder('utf-8').decode(nameBytes);
-      this.offset += header.part_group_name_size;
+    // Initialize parser with decrypted ArrayBuffer
+    init(arrayBuffer) {
+        this.dataView = new DataView(arrayBuffer);
+        this.offset = 0;
+        this.cur_block_size = 0;
+        this.pin_block_size = 0;
     }
 
-    return header;
-  }
+    // Optimized string reading
+    readString(length) {
+        if (length === 0) return '';
 
-  // Parse sub-blocks
-  parseSubBlock() {
-    if (this.offset >= this.dataView.byteLength) {
-      return null;
+        const stringBytes = new Uint8Array(
+            this.dataView.buffer,
+            this.dataView.byteOffset + this.offset,
+            length
+        );
+        this.offset += length;
+        return this.textDecoder.decode(stringBytes);
     }
 
-    const subTypeIdentifier = this.dataView.getUint8(this.offset);
-    this.offset += 1;
+    // Parse the part/pad structure
+    parse(arrayBuffer, t07blockSize) {
+        this.init(arrayBuffer);
+        this.cur_block_size = t07blockSize;
 
-    switch (subTypeIdentifier) {
-      case 0x01:
-        return this.parseSubType01();
-      case 0x05:
-        return this.parseSubType05();
-      case 0x06:
-        return this.parseSubType06();
-      case 0x09:
-        return this.parseSubType09();
-      default:
-        console.warn(`Unknown sub-type identifier: 0x${subTypeIdentifier.toString(16)} at offset ${this.offset}`);
-        return null;
-    }
-  }
+        const result = {
+            header: this.parseHeader(),
+            sub_blocks: []
+        };
 
-  // Parse sub-type 01 (Arc maybe)
-  parseSubType01() {
-    const blockSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        // Parse sub-blocks until we reach part_size
+        const partSize = result.header.part_size;
+        const trimmedBuffer = arrayBuffer.slice(0, 4 + partSize);
+        this.dataView = new DataView(trimmedBuffer);
 
-    const layer = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        // Sub-block handlers for better performance
+        const subBlockHandlers = {
+            0x01: () => this.parseSubType01(),
+            0x05: () => this.parseSubType05(),
+            0x06: () => this.parseSubType06(),
+            0x09: () => this.parseSubType09()
+        };
 
-    const x1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        while (this.offset + this.pin_block_size < this.dataView.byteLength) {
+            if (this.offset >= this.dataView.byteLength) break;
 
-    const y1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+            const subTypeIdentifier = this.dataView.getUint8(this.offset);
+            this.offset += 1;
 
-    // Skip padding[block_size-12]
-    const paddingSize = blockSize - 12;
-    this.offset += paddingSize;
+            const handler = subBlockHandlers[subTypeIdentifier];
+            if (handler) {
+                const subBlock = handler();
+                if (subBlock) {
+                    result.sub_blocks.push(subBlock);
+                }
+            } else {
+                console.warn(`Unknown sub-type identifier: 0x${subTypeIdentifier.toString(16)} at offset ${this.offset}`);
+                break;
+            }
+        }
 
-    return {
-      type: 'sub_type_01',
-      sub_type_identifier_01: 0x01,
-      block_size: blockSize,
-      layer,
-      x1,
-      y1,
-      padding_size: paddingSize
-    };
-  }
-
-  // Parse sub-type 05 (Line Segment)
-  parseSubType05() {
-    const blockSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const layer = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const x1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const y1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const x2 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const y2 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const scale = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    // Skip padding[4]
-    this.offset += 4;
-
-    return {
-      type: 'sub_type_05',
-      sub_type_identifier_05: 0x05,
-      block_size: blockSize,
-      layer,
-      x1,
-      y1,
-      x2,
-      y2,
-      scale
-    };
-  }
-
-  // Parse sub-type 06 (Labels/Part Names)
-  parseSubType06() {
-    const blockSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const layer = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const x = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const y = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const fontSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const fontScale = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    // Skip padding[4]
-    this.offset += 4;
-
-    const visibility = this.dataView.getUint8(this.offset);
-    this.offset += 1;
-
-    // Skip padding[1]
-    this.offset += 1;
-
-    const labelSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    // Read label
-    let label = '';
-    if (labelSize > 0) {
-      const labelBytes = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, labelSize);
-      label = new TextDecoder('utf-8').decode(labelBytes);
-      this.offset += labelSize;
+        return result;
     }
 
-    return {
-      type: 'sub_type_06',
-      sub_type_identifier_06: 0x06,
-      block_size: blockSize,
-      layer,
-      x,
-      y,
-      font_size: fontSize,
-      font_scale: fontScale,
-      visibility,
-      label_size: labelSize,
-      label
-    };
-  }
+    // Parse header structure with reduced DataView calls
+    parseHeader() {
+        const dv = this.dataView;
+        let offset = this.offset;
 
-  // Parse sub-type 09 (Pins)
-  parseSubType09() {
-    const blockSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        const header = {
+            part_size: dv.getUint32(offset, true)
+        };
+        offset += 8; // Skip part_size + padding
 
-    // num of pins should be X = ((t07_block_size - (localOffset + blockSize))/(blockSize+5))+1
-    const blockEnd = this.offset + blockSize;
-    const pins = [];
-    
-  // Continue reading pins until we reach the end of the block
-  while (this.offset + blockSize <= this.cur_block_size) {
-    const un1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        header.part_x = dv.getUint32(offset, true); offset += 4;
+        header.part_y = dv.getUint32(offset, true); offset += 4;
+        header.part_rotation = dv.getUint32(offset, true); offset += 4;
+        header.visibility = dv.getUint8(offset); offset += 2; // Skip padding
+        header.part_group_name_size = dv.getUint32(offset, true); offset += 4;
 
-    const x = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        this.offset = offset;
 
-    const y = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        // Read part group name if present
+        header.part_group_name = header.part_group_name_size > 0
+            ? this.readString(header.part_group_name_size)
+            : '';
 
-    const un2 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const pinRotation = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const pinNameSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    // Read pin name
-    let pinName = '';
-    if (pinNameSize > 0) {
-      const pinNameBytes = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, pinNameSize);
-      pinName = new TextDecoder('utf-8').decode(pinNameBytes);
-      this.offset += pinNameSize;
+        return header;
     }
 
-    const width = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+    // Parse sub-type 01 (Arc maybe) - optimized
+    parseSubType01() {
+        const dv = this.dataView;
+        let offset = this.offset;
 
-    const height = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        const blockSize = dv.getUint32(offset, true); offset += 4;
+        const layer = dv.getUint32(offset, true); offset += 4;
+        const x1 = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const y1 = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const radius = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const angle_start = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const angle_end = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const scale = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const unknown_arc = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
 
-    const pin_shape = this.dataView.getUint8(this.offset, true);
-    this.offset += 1;
+        this.offset = offset;
 
-    // Skip the 2 repeated 9-byte blocks and 5-byte outline end block
-    this.offset += 23;
-
-    const netIndex = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    pins.push({
-      un1,
-      x,
-      y,
-      un2,
-      pin_rotation: pinRotation,
-      pin_name_size: pinNameSize,
-      pin_name: pinName,
-      height,
-      width,
-      pin_shape,
-      netIndex
-    });
-	//End single pin while loop We're at the end of the block, and need to use the block sizes for alignment.
-	//There's 8 bytes of padding between pin blocks. (need to verify more consistency throughout files)
-    this.offset += 13;		
+        return {
+            type: 'sub_type_01',
+            sub_type_identifier_01: 0x01,
+            block_size: blockSize,
+            layer, x1, y1, radius, angle_start, angle_end, scale, unknown_arc
+        };
     }
 
-    return {
-      type: 'sub_type_09',
-      sub_type_identifier_09: 0x09,
-      block_size: blockSize,
-      pins
-    };
-  }
+    // Parse sub-type 05 (Line Segment) - optimized
+    parseSubType05() {
+        const dv = this.dataView;
+        let offset = this.offset;
 
-  // Parse pin sub-types
-  parsePinSubType() {
-    if (this.offset >= this.dataView.byteLength) {
-      return null;
+        const blockSize = dv.getUint32(offset, true); offset += 4;
+        const layer = dv.getUint32(offset, true); offset += 4;
+        const x1 = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const y1 = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const x2 = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const y2 = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const scale = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+
+        this.offset = offset + 4; // Skip padding
+
+        return {
+            type: 'sub_type_05',
+            sub_type_identifier_05: 0x05,
+            block_size: blockSize,
+            layer, x1, y1, x2, y2, scale
+        };
     }
 
-    const pinType = this.dataView.getUint8(this.offset);
-    this.offset += 1;
+    // Parse sub-type 06 (Labels/Part Names) - optimized
+    parseSubType06() {
+        const dv = this.dataView;
+        let offset = this.offset;
 
-    switch (pinType) {
-      case 0x00:
-        return this.parsePinSubType00();
-      case 0x01:
-        return this.parsePinSubType01();
-      case 0x02:
-        return this.parsePinSubType02();
-      case 0x03:
-        return this.parsePinSubType03();
-      default:
-        console.warn(`Unknown pin sub-type: 0x${pinType.toString(16)} at offset ${this.offset}`);
-        return null;
-    }
-  }
+        const blockSize = dv.getUint32(offset, true); offset += 4;
+        const layer = dv.getUint32(offset, true); offset += 4;
+        const x = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const y = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const fontSize = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const fontScale = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const fontRotation = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+        const visibility = dv.getUint8(offset); offset += 2; // Skip padding
+        const labelSize = dv.getUint32(offset, true); offset += 4;
 
-  // Parse pin sub-type 00 (pin net)
-  parsePinSubType00() {
-    const netIndex = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        this.offset = offset;
 
-    const diodeReadingSize = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        const label = labelSize > 0 ? this.readString(labelSize) : '';
 
-    let diodeReading = '';
-    if (diodeReadingSize > 0) {
-      const diodeReadingBytes = new Uint8Array(this.dataView.buffer, this.dataView.byteOffset + this.offset, diodeReadingSize);
-      diodeReading = new TextDecoder('utf-8').decode(diodeReadingBytes);
-      this.offset += diodeReadingSize;
-    }
-
-    return {
-      type: 'pin_sub_type_00',
-      pin_net_identifier: 0x00,
-      net_index: netIndex,
-      diode_reading_size: diodeReadingSize,
-      diode_reading: diodeReading
-    };
-  }
-
-  // Parse pin sub-type 01
-  parsePinSubType01() {
-    const int1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
-
-    const result = {
-      type: 'pin_sub_type_01',
-      pin_unknown_01_identifier: 0x01,
-      int1
-    };
-
-    if (int1 > 0) {
-      const int2 = this.dataView.getUint32(this.offset, true);
-      this.offset += 4;
-      result.int2 = int2;
+        return {
+            type: 'sub_type_06',
+            sub_type_identifier_06: 0x06,
+            block_size: blockSize,
+            layer, x, y,
+            font_size: fontSize,
+            font_scale: fontScale,
+            font_rotation: fontRotation,
+            visibility,
+            label_size: labelSize,
+            label
+        };
     }
 
-    return result;
-  }
+    // Parse sub-type 09 (Pins) - heavily optimized
+    parseSubType09() {
+        const blockSize = this.dataView.getUint32(this.offset, true);
+        this.offset += 4;
 
-  // Parse pin sub-type 02
-  parsePinSubType02() {
-    const int1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        const pins = [];
+        const dv = this.dataView;
 
-    const result = {
-      type: 'pin_sub_type_02',
-      pin_unknown_02_identifier: 0x02,
-      int1
-    };
+        // Continue reading pins until we reach the end of the block
+        while (this.offset + blockSize <= this.cur_block_size) {
+            let offset = this.offset;
 
-    if (int1 > 0) {
-      const int2 = this.dataView.getUint32(this.offset, true);
-      this.offset += 4;
-      result.int2 = int2;
+            // Read pin data in bulk
+            const un1 = dv.getUint32(offset, true); offset += 4;
+            const x = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+            const y = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+            const inner_diameter = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+            const isThruHole_pin = (inner_diameter !== 0);
+            isThruHole_part = isThruHole_pin;
+
+            const pinRotation = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+            const pinNameSize = dv.getUint32(offset, true); offset += 4;
+
+            this.offset = offset;
+
+            // Read pin name
+            const pinName = pinNameSize > 0 ? this.readString(pinNameSize) : '';
+
+            offset = this.offset;
+            const width = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+            const height = dv.getUint32(offset, true) / XY_SCALE; offset += 4;
+            const shape = dv.getUint8(offset); offset += 24; // Skip shape + repeated blocks
+            const netIndex = dv.getUint32(offset, true); offset += 4;
+
+            this.offset = offset + 13; // Skip padding
+
+            pins.push({
+                un1, x, y, inner_diameter,
+                rotation: pinRotation,
+                name_size: pinNameSize,
+                name: pinName,
+                height, width, shape,
+                net_index: netIndex,
+                isThruHole_pin
+            });
+        }
+
+        return {
+            type: 'sub_type_09',
+            sub_type_identifier_09: 0x09,
+            block_size: blockSize,
+            pins
+        };
     }
 
-    return result;
-  }
+    // Pin sub-type parsers (simplified since they're not heavily used)
+    parsePinSubType() {
+        if (this.offset >= this.dataView.byteLength) return null;
 
-  // Parse pin sub-type 03
-  parsePinSubType03() {
-    const int1 = this.dataView.getUint32(this.offset, true);
-    this.offset += 4;
+        const pinType = this.dataView.getUint8(this.offset);
+        this.offset += 1;
 
-    const result = {
-      type: 'pin_sub_type_03',
-      pin_unknown_03_identifier: 0x03,
-      int1
-    };
+        const pinSubTypeHandlers = {
+            0x00: () => this.parsePinSubType00(),
+            0x01: () => this.parsePinSubType01(),
+            0x02: () => this.parsePinSubType02(),
+            0x03: () => this.parsePinSubType03()
+        };
 
-    if (int1 > 0) {
-      const int2 = this.dataView.getUint32(this.offset, true);
-      this.offset += 4;
-      result.int2 = int2;
+        const handler = pinSubTypeHandlers[pinType];
+        return handler ? handler() : null;
     }
 
-    return result;
-  }
+    parsePinSubType00() {
+        const dv = this.dataView;
+        let offset = this.offset;
+
+        const netIndex = dv.getUint32(offset, true); offset += 4;
+        const diodeReadingSize = dv.getUint32(offset, true); offset += 4;
+
+        this.offset = offset;
+        const diodeReading = diodeReadingSize > 0 ? this.readString(diodeReadingSize) : '';
+
+        return {
+            type: 'pin_sub_type_00',
+            pin_net_identifier: 0x00,
+            net_index: netIndex,
+            diode_reading_size: diodeReadingSize,
+            diode_reading: diodeReading
+        };
+    }
+
+    parsePinSubType01() {
+        const int1 = this.dataView.getUint32(this.offset, true);
+        this.offset += 4;
+
+        const result = {
+            type: 'pin_sub_type_01',
+            pin_unknown_01_identifier: 0x01,
+            int1
+        };
+
+        if (int1 > 0) {
+            result.int2 = this.dataView.getUint32(this.offset, true);
+            this.offset += 4;
+        }
+
+        return result;
+    }
+
+    parsePinSubType02() {
+        const int1 = this.dataView.getUint32(this.offset, true);
+        this.offset += 4;
+
+        const result = {
+            type: 'pin_sub_type_02',
+            pin_unknown_02_identifier: 0x02,
+            int1
+        };
+
+        if (int1 > 0) {
+            result.int2 = this.dataView.getUint32(this.offset, true);
+            this.offset += 4;
+        }
+
+        return result;
+    }
+
+    parsePinSubType03() {
+        const int1 = this.dataView.getUint32(this.offset, true);
+        this.offset += 4;
+
+        const result = {
+            type: 'pin_sub_type_03',
+            pin_unknown_03_identifier: 0x03,
+            int1
+        };
+
+        if (int1 > 0) {
+            result.int2 = this.dataView.getUint32(this.offset, true);
+            this.offset += 4;
+        }
+
+        return result;
+    }
 }
 
-// Export for use in other modules
+// Export for both ES Modules and CommonJS
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = PartDataParser;
+    module.exports = PartDataParser;
 }
+
+// Add ES Module export
+export { PartDataParser };

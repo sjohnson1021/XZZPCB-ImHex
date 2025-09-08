@@ -59,7 +59,7 @@ Layers:
 
 // Arcs
 struct type_01 {
-    u8 type_identifier_01;
+    u8 sub_type_identifier_01;
     u32 block_size; // non-inclusive of type+size
     u32 layer;
     u32 x1;
@@ -73,7 +73,7 @@ struct type_01 {
 
 // Vias
 struct type_02 {
-    u8 type_identifier_02;
+    u8 sub_type_identifier_02;
     u32 block_size_type_02; // non-inclusive of type+size
     s32 x;
     s32 y;
@@ -88,7 +88,7 @@ struct type_02 {
 
 // Seen but unknown purpose
 struct type_03 {
-    u8 type_identifier_03;
+    u8 sub_type_identifier_03;
     u32 block_size_type_03;
     u32 unknown; // Maybe net index? havent seen not 17
     u32 centre_x;
@@ -103,12 +103,12 @@ struct type_03 {
 
 // Not seen
 struct type_04 {
-    u8 type_identifier_04;
+    u8 sub_type_identifier_04;
 };
 
 // Line Segment
 struct type_05 {
-    u8 type_identifier_05;
+    u8 sub_type_identifier_05;
     u32 block_size; // non-inclusive of type+size
     u32 layer;
     s32 x1;
@@ -121,7 +121,7 @@ struct type_05 {
 
 // Text
 struct type_06 {
-    u8 type_identifier_06;
+    u8 sub_type_identifier_06;
     u32 block_size; // non-inclusive of type+size
     u32 unknown_1;
     u32 pos_x;
@@ -137,8 +137,8 @@ struct type_06 {
 // Part/pads
 
 // Part sub type -> Line Segment (0x05)
-struct part_sub_type_05 {
-    u8 part_sub_type_identifier_05;
+struct sub_type_05 {
+    u8 sub_type_identifier_05;
     u32 block_size;
     u32 layer; // Always 17 (silkscreen) so far
     u32 x1;
@@ -150,49 +150,50 @@ struct part_sub_type_05 {
 };
 
 // Part sub type -> Labels/Part Names (0x06)
-struct part_sub_type_06 {
-    u8 part_sub_type_identifier_06;
+struct sub_type_06 {
+    u8 sub_type_identifier_06;
     u32 block_size;
     u32 layer; // Always 17 (silkscreen) so far
     u32 x;
     u32 y;
     u32 font_size;
     u32 font_scale;
-    padding[4];
+    u32 font_rotation;
     u8 visibility; // 01 = Hidden, 02 = Visible
     u8 ps06_flag2; // 0 or 1? Unknown purpose
     u32 label_size;
-    char type_06_label[label_size];
+    char label[label_size];//Letters are important C = cap, R, res, L-Inductor N No-stuff?
+    type_01 subtype01[while($[$] == 0x01)];
 };
 
 // Part sub type -> Pins (0x09)
-struct pin_outline {
+struct outline {
     if (std::mem::read_unsigned($, 4, 1) == 0 && std::mem::read_unsigned($+4, 1, 1) == 0) {
         u32 outline_end_u32;
         u8 outline_end_type;
         break;
     } else {
-        u32 pin_outline_x;
-        u32 pin_outline_y;
-        u8 pin_outline_type; // 0x00 -> none/end, 0x01 -> circular, 0x02 -> rectangular
+        u32 outline_x;
+        u32 outline_y;
+        u8 outline_type; // 0x00 -> none/end, 0x01 -> circular, 0x02 -> rectangular
     }
 };
 
 u32 temp;
-struct part_sub_type_09 {
-    u8 part_sub_type_identifier_09;
-    u32 part_sub_type_09_block_size;
+struct sub_type_09 {
+    u8 sub_type_identifier_09;
+    u32 sub_type_09_block_size;
     padding[4];
-    u32 pin_x;
-    u32 pin_y;
-    padding[4];
-    u32 pin_rotation;
-    u32 pin_name_size;
-    char pin_name[pin_name_size];
+    u32 x;
+    u32 y;
+    u32 inner_diameter;
+    u32 rotation;
+    u32 name_size;
+    char name[name_size];
     
-    pin_outline pin_outline[4];
+    outline outline[4];
     
-    temp = part_sub_type_09_block_size-sizeof(this)+5-12;
+    temp = sub_type_09_block_size-sizeof(this)+5-12;
     padding[temp];
     if (temp != 0) {
         std::print(std::string::to_string(temp));
@@ -202,29 +203,29 @@ struct part_sub_type_09 {
 };
 
 struct type_07 {
-    u8 type_identifier_07;
+    u8  sub_type_identifier_07;
     u32 t07_block_size;
     
-    u32 part_size;
+    u32 size;
     padding[4];
-    u32 part_x;
-    u32 part_y;
-    u32 part_rotation;
+    u32 x;
+    u32 y;
+    u32 rotation;
     u8 flag1; // all 1
     u8 flag2; // all 0
     u32 pad_size_length;
     char pad_size[pad_size_length];
-    
-    part_sub_type_06 subtype06[while($[$] == 0x06)];
-    part_sub_type_05 subtype05[while($[$] == 0x05)];
-    part_sub_type_09 subtype09[while($[$] == 0x09)];
-    
+
+    sub_type_06 subtype06[while($[$] == 0x06)];
+    sub_type_05 subtype05[while($[$] == 0x05)];
+    sub_type_09 subtype09[while($[$] == 0x09)];
+        
     padding[t07_block_size-sizeof(this)+5];
 }; 
 
 // Not seen
 struct type_08 {
-    u8 type_identifier_08;
+    u8 sub_type_identifier_08;
 };
 
 // Test pad/drill hole
@@ -235,18 +236,18 @@ struct type_09 {
     u32 x_origin;
     u32 y_origin;
     u32 inner_diameter; // 0 if filled in
-    u32 unknown1;
+    u32 rotation;
     u32 name_length;
     char name[name_length];
     u32 outer_width_1;
     u32 outer_height_1;
-    u8 flag1;
+    u8 shape_flag_1;
     u32 outer_width_2;
     u32 outer_height_2;
-    u8 flag2;
+    u8 shape_flag_2;
     u32 outer_width_3;
     u32 outer_height_3;
-    u8 flag3;
+    u8 outline_end_flag;
     u32 unknown2;
     u8 flag4;
     u32 net_index;
